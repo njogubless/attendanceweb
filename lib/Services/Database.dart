@@ -8,8 +8,8 @@ class Database {
 
   static Future<Client> getClientData(String email) async {
     final QuerySnapshot querySnapshot = await firestore
-        .collection('clients')
-        .where('clientEmail', isEqualTo: email)
+        .collection('users')
+        .where('email', isEqualTo: email)
         .get();
     final List<QueryDocumentSnapshot> docs = querySnapshot.docs;
     return docs
@@ -19,7 +19,7 @@ class Database {
   }
 
   static Future<void> saveClientData( Client client) async {
-    final DocumentReference docRef = firestore.collection('clients').doc();
+    final DocumentReference docRef = firestore.collection('users').doc();
     await docRef.set(client.toJson());
   }
 }

@@ -122,30 +122,33 @@ class AuthService {
   }
 
   // Sign in with email & password
-  Future<Client?> signInWithEmailAndPassword(
-      String email, String password, WidgetRef ref) async {
-    try {
-      ref.read(authNotifierProvider.notifier).setLoading(true);
-      
-      // Get client data from database
-      final clientData = await Database.getClientData(email);
-      ref.read(authNotifierProvider.notifier).setUser(clientData);
-      
-      // Verify role
-      if (clientData.role != 'admin') {
-        throw Exception('Only admin users can access this dashboard');
-      }
-      
-      // Sign in with Firebase
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-      ref.read(authNotifierProvider.notifier).setLoading(false);
-      return clientData;
-    } catch (e) {
-      ref.read(authNotifierProvider.notifier).setLoading(false);
-      ref.read(authNotifierProvider.notifier).setError(e.toString());
-      return null;
+Future<Client?> signInWithEmailAndPassword(
+    String email, String password, WidgetRef ref) async {
+  try {
+    ref.read(authNotifierProvider.notifier).setLoading(true);
+    
+    // First authenticate with Firebase
+    UserCredential result = await _auth.signInWithEmailAndPassword(
+        email: email, password: password);
+    
+    // Then get client data from database
+    final clientData = await Database.getClientData(email);
+    ref.read(authNotifierProvider.notifier).setUser(clientData);
+    
+    // Verify role
+    if (clientData.role != 'admin') {
+      await _auth.signOut(); // Sign out if not admin
+      throw Exception('Only admin users can access this dashboard');
     }
+    
+    ref.read(authNotifierProvider.notifier).setLoading(false);
+    return clientData;
+  } catch (e) {
+    ref.read(authNotifierProvider.notifier).setLoading(false);
+    ref.read(authNotifierProvider.notifier).setError(e.toString());
+    return null;
   }
+}
 
   // Sign out Method
   Future<void> signOut(WidgetRef ref) async {
