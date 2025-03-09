@@ -72,6 +72,7 @@ final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  User? get currentUser => _auth.currentUser;
 
   // Convert Firebase User to Client model
   Client? _userFromFirebaseUser(User? user, bool signUp) {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Provider for current time that updates every minute
 final currentTimeProvider = StreamProvider<DateTime>((ref) {
@@ -25,14 +26,61 @@ final currentTimeProvider = StreamProvider<DateTime>((ref) {
   
   return controller.stream;
 });
-// Provider for simple analytics data (you would replace this with real data)
-final analyticsProvider = Provider<Map<String, int>>((ref) {
-  return {
-    'students': 254,
-    'lectures': 36,
-    'completionRate': 78,
-    'activeUsers': 142,
-  };
+
+// Provider for fetching analytics data from Firestore
+final analyticsProvider = StreamProvider<Map<String, int>>((ref) {
+  return FirebaseFirestore.instance
+      .collection('courses')
+      .snapshots()
+      .map((coursesSnapshot) {
+        // Count total courses
+        final totalCourses = coursesSnapshot.docs.length;
+        
+        // Get all student IDs from all courses
+        final Set<String> uniqueStudentIds = {};
+        final Set<String> uniqueLecturerIds = {};
+        
+        for (var courseDoc in coursesSnapshot.docs) {
+          // Extract student IDs from enrolledStudents field
+          final enrolledStudents = courseDoc.data()['enrolledStudents'] as List?;
+          if (enrolledStudents != null) {
+            for (var studentId in enrolledStudents) {
+              uniqueStudentIds.add(studentId.toString());
+            }
+          }
+          
+          // Extract lecturer ID
+          final lecturerId = courseDoc.data()['lecturerId'];
+          if (lecturerId != null) {
+            uniqueLecturerIds.add(lecturerId.toString());
+          }
+        }
+        
+        return {
+          'students': uniqueStudentIds.length,
+          'lectures': totalCourses,
+          'lecturers': uniqueLecturerIds.length,
+          'activeUsers': uniqueStudentIds.length + uniqueLecturerIds.length,
+        };
+      });
+});
+
+// Provider for courses registered
+final coursesRegisteredProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  return FirebaseFirestore.instance
+      .collection('courses')
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            final enrolledStudents = data['enrolledStudents'] as List? ?? [];
+            
+            return {
+              'name': data['name'] ?? 'Unnamed Course',
+              'code': data['courseCode'] ?? '',
+              'students': enrolledStudents.length,
+              'lecturer': data['lecturerName'] ?? 'Unknown',
+            };
+          }).toList());
 });
 
 class WelcomeSection extends ConsumerWidget {
@@ -46,7 +94,8 @@ class WelcomeSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timeAsyncValue = ref.watch(currentTimeProvider);
-    final analytics = ref.watch(analyticsProvider);
+    final analyticsAsyncValue = ref.watch(analyticsProvider);
+    final coursesAsyncValue = ref.watch(coursesRegisteredProvider);
     
     return Scaffold(
       body: SingleChildScrollView(
@@ -54,7 +103,7 @@ class WelcomeSection extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with time and date
+            // Header with date
             timeAsyncValue.when(
               data: (time) => _buildHeader(time),
               loading: () => _buildHeader(DateTime.now()),
@@ -64,7 +113,13 @@ class WelcomeSection extends ConsumerWidget {
             const SizedBox(height: 32),
             
             // Quick stats
-            _buildQuickStats(analytics),
+            analyticsAsyncValue.when(
+              data: (analytics) => _buildQuickStats(analytics),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => const Center(
+                child: Text('Failed to load dashboard data'),
+              ),
+            ),
             
             const SizedBox(height: 32),
             
@@ -73,8 +128,14 @@ class WelcomeSection extends ConsumerWidget {
             
             const SizedBox(height: 32),
             
-            // Recent activity
-            _buildRecentActivity(),
+            // Courses registered
+            coursesAsyncValue.when(
+              data: (courses) => _buildCoursesRegistered(courses),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => const Center(
+                child: Text('Failed to load courses data'),
+              ),
+            ),
           ],
         ),
       ),
@@ -82,36 +143,17 @@ class WelcomeSection extends ConsumerWidget {
   }
 
   Widget _buildHeader(DateTime now) {
-    String greeting;
-    final hour = now.hour;
-    
-    if (hour < 12) {
-      greeting = 'Good Morning';
-    } else if (hour < 17) {
-      greeting = 'Good Afternoon';
-    } else {
-      greeting = 'Good Evening';
-    }
-    
     final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
     final timeFormat = DateFormat('h:mm a');
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          greeting,
-          style: const TextStyle(
+        const Text(
+          'Welcome to Dashboard',
+          style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Welcome to your Admin Dashboard',
-          style: TextStyle(
-            fontSize: 18,
-            color: Colors.grey[600],
           ),
         ),
         const SizedBox(height: 16),
@@ -169,16 +211,16 @@ class WelcomeSection extends ConsumerWidget {
               Colors.blue[700]!,
             ),
             _buildStatCard(
-              'Total Lectures',
+              'Total Courses',
               analytics['lectures']?.toString() ?? '0',
               Icons.book,
               Colors.green[100]!,
               Colors.green[700]!,
             ),
             _buildStatCard(
-              'Completion Rate',
-              '${analytics['completionRate']}%',
-              Icons.trending_up,
+              'Total Lecturers',
+              analytics['lecturers']?.toString() ?? '0',
+              Icons.school,
               Colors.orange[100]!,
               Colors.orange[700]!,
             ),
@@ -337,12 +379,12 @@ class WelcomeSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentActivity() {
+  Widget _buildCoursesRegistered(List<Map<String, dynamic>> courses) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Recent Activity',
+          'Courses Registered',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -357,11 +399,27 @@ class WelcomeSection extends ConsumerWidget {
           child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: 5,
+            itemCount: courses.length,
             separatorBuilder: (context, index) => const Divider(),
             itemBuilder: (context, index) {
-              return _buildActivityItem(
-                _demoActivities[index % _demoActivities.length],
+              final course = courses[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue,
+                  child: Text(
+                    course['code'].toString().substring(0, 1),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                title: Text('${course['name']} (${course['code']})'),
+                subtitle: Text('Lecturer: ${course['lecturer']}'),
+                trailing: Chip(
+                  label: Text(
+                    '${course['students']} Students',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  backgroundColor: Colors.green,
+                ),
               );
             },
           ),
@@ -369,63 +427,4 @@ class WelcomeSection extends ConsumerWidget {
       ],
     );
   }
-
-  Widget _buildActivityItem(Map<String, dynamic> activity) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: activity['color'],
-        child: Icon(
-          activity['icon'],
-          color: Colors.white,
-        ),
-      ),
-      title: Text(activity['title']),
-      subtitle: Text(activity['time']),
-      trailing: activity['actionable']
-          ? TextButton(
-              onPressed: () {},
-              child: const Text('View'),
-            )
-          : null,
-    );
-  }
 }
-
-// Demo data for activities
-final List<Map<String, dynamic>> _demoActivities = [
-  {
-    'title': 'New lecture "Introduction to Flutter" added',
-    'time': '10 minutes ago',
-    'icon': Icons.book,
-    'color': Colors.blue,
-    'actionable': true,
-  },
-  {
-    'title': 'James Smith completed "Dart Basics" course',
-    'time': '1 hour ago',
-    'icon': Icons.person,
-    'color': Colors.green,
-    'actionable': false,
-  },
-  {
-    'title': '5 new students registered',
-    'time': '3 hours ago',
-    'icon': Icons.group_add,
-    'color': Colors.purple,
-    'actionable': true,
-  },
-  {
-    'title': 'System maintenance scheduled',
-    'time': 'Tomorrow, 2:00 AM',
-    'icon': Icons.settings,
-    'color': Colors.orange,
-    'actionable': false,
-  },
-  {
-    'title': 'New feedback received for "Advanced Flutter"',
-    'time': 'Yesterday',
-    'icon': Icons.feedback,
-    'color': Colors.red,
-    'actionable': true,
-  },
-];
