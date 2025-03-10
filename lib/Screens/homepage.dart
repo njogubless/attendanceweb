@@ -1,12 +1,15 @@
+// Update your homepage.dart file
+
 import 'package:attendanceweb/Features/Auth/auth.dart';
 import 'package:attendanceweb/Screens/lecture_screen.dart';
 import 'package:attendanceweb/Screens/student_screen.dart';
 import 'package:attendanceweb/Screens/welcome.dart';
+
+import 'package:attendanceweb/Services/Providers/status_providers.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-final selectedIndexProvider = StateProvider<int>((ref) => 0);
 
 // Provider for sidebar stats 
 final sidebarStatsProvider = StreamProvider<Map<String, int>>((ref) {
@@ -63,7 +66,7 @@ final sidebarStatsProvider = StreamProvider<Map<String, int>>((ref) {
 class Homepage extends ConsumerWidget {
   const Homepage({super.key});
 
-  Widget _showSection(int index, WidgetRef ref) {
+  Widget _showSection(int index, String status, String courseAttendanceView, WidgetRef ref) {
     switch (index) {
       case 0:
         return WelcomeSection(
@@ -72,9 +75,15 @@ class Homepage extends ConsumerWidget {
           },
         );
       case 1:
-        return const LecturePage();
+        return LecturePage(status: status);
       case 2:
-        return const StudentPage();
+        return StudentPage(status: status);
+      case 3:
+        if (courseAttendanceView == 'courses') {
+          return const CourseScreen();
+        } else {
+          return const AttendanceScreen();
+        }
       default:
         AuthService().signOut(ref);
         return const Center();
@@ -84,6 +93,8 @@ class Homepage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = ref.watch(selectedIndexProvider);
+    final selectedStatus = ref.watch(selectedStatusProvider);
+    final courseAttendanceView = ref.watch(courseAttendanceViewProvider);
     final sidebarStatsAsync = ref.watch(sidebarStatsProvider);
 
     return Scaffold(
@@ -126,24 +137,34 @@ class Homepage extends ConsumerWidget {
                         selectedIndex: selectedIndex,
                       ),
 
-                      // Lectures
-                      _buildMenuItem(
+                      // Lectures with dropdown
+                      _buildExpandableMenuItem(
                         context: context,
                         ref: ref,
-                        icon: Icons.book,
-                        label: 'Lectures',
+                        icon: Icons.school,
+                        label: 'Lecturers',
                         index: 1,
                         selectedIndex: selectedIndex,
+                        selectedStatus: selectedStatus,
                       ),
 
-                      // Students
-                      _buildMenuItem(
+                      // Students with dropdown
+                      _buildExpandableMenuItem(
                         context: context,
                         ref: ref,
                         icon: Icons.people,
                         label: 'Students',
                         index: 2,
                         selectedIndex: selectedIndex,
+                        selectedStatus: selectedStatus,
+                      ),
+                      
+                      // Course and Attendance section
+                      _buildCourseAttendanceMenu(
+                        context: context,
+                        ref: ref,
+                        selectedIndex: selectedIndex,
+                        courseAttendanceView: courseAttendanceView,
                       ),
                       
                       const SizedBox(height: 16),
@@ -232,7 +253,7 @@ class Homepage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             FutureBuilder<String>(
-                              future: AuthService().getCurrentUserEmail(),
+                              future: AuthService().getClientEmail(),
                               builder: (context, snapshot) {
                                 return Text(
                                   snapshot.data ?? 'Admin User',
@@ -260,13 +281,14 @@ class Homepage extends ConsumerWidget {
 
           // Main content area
           Expanded(
-            child: _showSection(selectedIndex, ref),
+            child: _showSection(selectedIndex, selectedStatus, courseAttendanceView, ref),
           ),
         ],
       ),
     );
   }
 
+  // Regular menu item
   Widget _buildMenuItem({
     required BuildContext context,
     required WidgetRef ref,
@@ -292,10 +314,170 @@ class Homepage extends ConsumerWidget {
         if (index >= 0) {
           // Update selected index
           ref.read(selectedIndexProvider.notifier).state = index;
+          // Reset to "all" view when changing main menu items
+          ref.read(selectedStatusProvider.notifier).state = 'all';
         } else {
           // Logout
           AuthService().signOut(ref);
         }
+      },
+    );
+  }
+  
+  // Expandable menu item with status options
+  Widget _buildExpandableMenuItem({
+    required BuildContext context,
+    required WidgetRef ref,
+    required IconData icon,
+    required String label,
+    required int index,
+    required int selectedIndex,
+    required String selectedStatus,
+  }) {
+    final isSelected = selectedIndex == index;
+    final isExpanded = isSelected;
+    
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(icon, color: isSelected ? Colors.white : Colors.white),
+          title: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.white,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          trailing: Icon(
+            isExpanded ? Icons.expand_less : Icons.expand_more,
+            color: Colors.white70,
+          ),
+          tileColor: isSelected ? Colors.white10 : Colors.transparent,
+          onTap: () {
+            ref.read(selectedIndexProvider.notifier).state = index;
+            ref.read(selectedStatusProvider.notifier).state = 'all';
+          },
+        ),
+        if (isExpanded)
+          Column(
+            children: [
+              _buildStatusOption(context, ref, 'All', 'all', selectedStatus),
+              _buildStatusOption(context, ref, 'Approved', 'approved', selectedStatus),
+              _buildStatusOption(context, ref, 'Pending', 'pending', selectedStatus),
+              _buildStatusOption(context, ref, 'Rejected', 'rejected', selectedStatus),
+            ],
+          ),
+      ],
+    );
+  }
+  
+  // Individual status option
+  Widget _buildStatusOption(
+    BuildContext context, 
+    WidgetRef ref, 
+    String label, 
+    String status, 
+    String selectedStatus
+  ) {
+    final isSelected = selectedStatus == status;
+    
+    return ListTile(
+      contentPadding: const EdgeInsets.only(left: 56.0, right: 16.0),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.white : Colors.white70,
+          fontSize: 14,
+        ),
+      ),
+      tileColor: isSelected ? Colors.white10 : Colors.transparent,
+      dense: true,
+      onTap: () {
+        ref.read(selectedStatusProvider.notifier).state = status;
+      },
+    );
+  }
+  
+  // Course and Attendance menu section
+  Widget _buildCourseAttendanceMenu({
+    required BuildContext context,
+    required WidgetRef ref,
+    required int selectedIndex,
+    required String courseAttendanceView,
+  }) {
+    final isSelected = selectedIndex == 3;
+    
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(Icons.book, color: isSelected ? Colors.white : Colors.white),
+          title: Text(
+            'Academic',
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.white,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          trailing: Icon(
+            isSelected ? Icons.expand_less : Icons.expand_more,
+            color: Colors.white70,
+          ),
+          tileColor: isSelected ? Colors.white10 : Colors.transparent,
+          onTap: () {
+            ref.read(selectedIndexProvider.notifier).state = 3;
+            ref.read(courseAttendanceViewProvider.notifier).state = 'courses';
+          },
+        ),
+        if (isSelected)
+          Column(
+            children: [
+              _buildAcademicOption(
+                context, 
+                ref, 
+                'Courses', 
+                'courses', 
+                courseAttendanceView,
+                Icons.book
+              ),
+              _buildAcademicOption(
+                context, 
+                ref, 
+                'Attendance', 
+                'attendance', 
+                courseAttendanceView,
+                Icons.event_available
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+  
+  // Individual academic option
+  Widget _buildAcademicOption(
+    BuildContext context, 
+    WidgetRef ref, 
+    String label, 
+    String view, 
+    String selectedView,
+    IconData icon
+  ) {
+    final isSelected = selectedView == view;
+    
+    return ListTile(
+      contentPadding: const EdgeInsets.only(left: 56.0, right: 16.0),
+      leading: Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 16),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.white : Colors.white70,
+          fontSize: 14,
+        ),
+      ),
+      tileColor: isSelected ? Colors.white10 : Colors.transparent,
+      dense: true,
+      onTap: () {
+        ref.read(courseAttendanceViewProvider.notifier).state = view;
       },
     );
   }
@@ -334,13 +516,5 @@ class Homepage extends ConsumerWidget {
         ],
       ),
     );
-  }
-}
-
-// Add this to the AuthService class
-extension AuthServiceExtension on AuthService {
-  Future<String> getCurrentUserEmail() async {
-    final user = currentUser;
-    return user?.email ?? 'Admin User';
   }
 }
