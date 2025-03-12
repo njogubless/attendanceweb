@@ -121,6 +121,17 @@ class AuthService {
       return null;
     }
   }
+    Future<String> getClientEmail() async {
+    // If you want to get the email of the current user
+    if (currentUser != null && currentUser!.email != null) {
+      return currentUser!.email!;
+    }
+    
+    // If you need to get the email from a Client object
+    // You might need to fetch it from your database if not already available
+    final clientData = await Database.getClientData(currentUser!.uid);
+    return clientData.clientEmail;
+  }
 
   // Sign in with email & password
 Future<Client?> signInWithEmailAndPassword(

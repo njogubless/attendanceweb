@@ -22,19 +22,21 @@ class Database {
     final DocumentReference docRef = firestore.collection('users').doc();
     await docRef.set(client.toJson());
   }
-  Stream<List<Client>> getUsersByRoleAndStatus(String role, String status) {
-    Query query = firestore.collection('users').where('role', isEqualTo: role);
-    
-    if (status != 'all') {
-      query = query.where('status', isEqualTo: status);
-    }
-    
-    return query.snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return Client.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
-      }).toList();
-    });
+
+ Stream<List<Client>> getUsersByRoleAndStatus(String role, String status) {
+  Query query = firestore.collection('users').where('role', isEqualTo: role);
+  
+  if (status != 'all') {
+    query = query.where('status', isEqualTo: status);
   }
+  
+  return query.snapshots().map((snapshot) {
+    return snapshot.docs.map((doc) {
+      // Pass the entire doc, which is a DocumentSnapshot
+      return Client.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>);
+    }).toList();
+  });
+}
   
   // Update user status
   Future<void> updateUserStatus(String userId, String newStatus) async {
@@ -52,4 +54,6 @@ class Database {
   Future<void> deleteUser(String userId) async {
     await firestore.collection('users').doc(userId).delete();
   }
+
+  
 }

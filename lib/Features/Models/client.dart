@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Client {
   final String? uid;
   final String clientName;
@@ -43,6 +45,17 @@ class Client {
       clientEmail: map['clientEmail'] as String,
       role: map['role'] as String,
       status: map['status'] != null ? map['status'] as String : null,
+    );
+  }
+  factory Client.fromFirestore(DocumentSnapshot<Map<String, dynamic>> snapshot, 
+      [SnapshotOptions? options]) {
+    final data = snapshot.data()!;
+    return Client(
+      uid: snapshot.id,
+      clientName: data['clientName'] as String,
+      clientEmail: data['clientEmail'] as String,
+      role: data['role'] as String,
+      status: data['status'] as String,
     );
   }
 }

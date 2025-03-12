@@ -1,6 +1,8 @@
 // Update your homepage.dart file
 
 import 'package:attendanceweb/Features/Auth/auth.dart';
+import 'package:attendanceweb/Screens/attendance_screen.dart';
+import 'package:attendanceweb/Screens/course_screen.dart';
 import 'package:attendanceweb/Screens/lecture_screen.dart';
 import 'package:attendanceweb/Screens/student_screen.dart';
 import 'package:attendanceweb/Screens/welcome.dart';
@@ -75,9 +77,9 @@ class Homepage extends ConsumerWidget {
           },
         );
       case 1:
-        return LecturePage(status: status);
+        return const LecturePage();
       case 2:
-        return StudentPage(status: status);
+        return const StudentPage();
       case 3:
         if (courseAttendanceView == 'courses') {
           return const CourseScreen();
