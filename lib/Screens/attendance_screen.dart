@@ -79,7 +79,7 @@ class StudentAttendanceList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('studentAttendance').snapshots(),
+      stream: FirebaseFirestore.instance.collection('attendances').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -98,7 +98,11 @@ class StudentAttendanceList extends StatelessWidget {
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
             final attendanceData = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-            final bool isPresent = attendanceData['status'] == true;
+            final bool isPresent = attendanceData['status'] == 'approved';
+            
+            // Get associated student data
+            String studentId = attendanceData['studentId'] ?? '';
+            String studentName = attendanceData['studentName'] ?? 'Unknown Student';
             
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
@@ -134,7 +138,7 @@ class StudentAttendanceList extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                attendanceData['name'] ?? 'Unknown Student',
+                                studentName,
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -142,7 +146,7 @@ class StudentAttendanceList extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                attendanceData['email'] ?? 'No email',
+                                studentId,
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 14,
@@ -159,7 +163,7 @@ class StudentAttendanceList extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isPresent ? 'Present' : 'Absent',
+                            isPresent ? 'Approved' : 'Pending',
                             style: TextStyle(
                               fontWeight: FontWeight.w500,
                               color: isPresent ? Colors.green : Colors.red,
@@ -172,24 +176,27 @@ class StudentAttendanceList extends StatelessWidget {
                     _buildInfoRow(
                       Icons.school,
                       'Course',
-                      attendanceData['course'] ?? 'Not specified'
+                      attendanceData['courseName'] ?? 'Not specified'
                     ),
                     _buildInfoRow(
                       Icons.book,
                       'Unit',
-                      attendanceData['unit'] ?? 'Not specified'
+                      attendanceData['unitId'] ?? 'Not specified'
                     ),
                     _buildInfoRow(
                       Icons.person,
                       'Lecturer',
-                      attendanceData['lecturer'] ?? 'Not assigned'
+                      attendanceData['lecturerId'] ?? 'Not assigned'
                     ),
                     _buildInfoRow(
                       Icons.calendar_today,
                       'Date',
-                      attendanceData['date'] != null 
-                        ? _formatDate(attendanceData['date']) 
-                        : 'Not recorded'
+                      _formatDate(attendanceData['attendanceDate'])
+                    ),
+                    _buildInfoRow(
+                      Icons.location_on,
+                      'Venue',
+                      attendanceData['venue'] ?? 'Not specified'
                     ),
                   ],
                 ),
@@ -238,6 +245,8 @@ class StudentAttendanceList extends StatelessWidget {
     if (timestamp is Timestamp) {
       final date = timestamp.toDate();
       return '${date.day}/${date.month}/${date.year}';
+    } else if (timestamp is String) {
+      return timestamp;
     }
     return 'Unknown';
   }
@@ -249,7 +258,9 @@ class LecturerAttendanceList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('lecturerAttendance').snapshots(),
+      stream: FirebaseFirestore.instance
+        .collection('attendances')
+        .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -263,15 +274,39 @@ class LecturerAttendanceList extends StatelessWidget {
           return const Center(child: Text('No lecturer attendance records available'));
         }
         
+        // Group attendances by lecturer
+        Map<String, List<DocumentSnapshot>> lecturerAttendances = {};
+        
+        for (var doc in snapshot.data!.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final lecturerId = data['lecturerId'] as String?;
+          
+          if (lecturerId != null) {
+            if (!lecturerAttendances.containsKey(lecturerId)) {
+              lecturerAttendances[lecturerId] = [];
+            }
+            
+            lecturerAttendances[lecturerId]!.add(doc);
+          }
+        }
+        
+        if (lecturerAttendances.isEmpty) {
+          return const Center(child: Text('No lecturer data available'));
+        }
+        
+        List<String> lecturerIds = lecturerAttendances.keys.toList();
+        
         return ListView.builder(
           padding: EdgeInsets.zero,
-          itemCount: snapshot.data!.docs.length,
+          itemCount: lecturerIds.length,
           itemBuilder: (context, index) {
-            final attendanceData = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-            final bool isPresent = attendanceData['status'] == true;
+            final lecturerId = lecturerIds[index];
+            final firstAttendanceData = lecturerAttendances[lecturerId]!.first.data() as Map<String, dynamic>;
             
-            // Continuing from where the code left off in the LecturerAttendanceList class
-
+            // Use the comments field to determine if lecturer had comments
+            final hasComments = firstAttendanceData['lecturerComments'] != null && 
+                            firstAttendanceData['lecturerComments'].toString().isNotEmpty;
+            
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(
@@ -289,13 +324,13 @@ class LecturerAttendanceList extends StatelessWidget {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: isPresent ? Colors.green[100] : Colors.red[100],
+                            color: Colors.blue[100],
                             shape: BoxShape.circle,
                           ),
-                          child: Center(
+                          child: const Center(
                             child: Icon(
-                              isPresent ? Icons.check : Icons.close,
-                              color: isPresent ? Colors.green : Colors.red,
+                              Icons.person,
+                              color: Colors.blue,
                               size: 20,
                             ),
                           ),
@@ -306,7 +341,7 @@ class LecturerAttendanceList extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                attendanceData['name'] ?? 'Unknown Lecturer',
+                                "Lecturer ID: $lecturerId",
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -314,12 +349,11 @@ class LecturerAttendanceList extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                attendanceData['email'] ?? 'No email',
+                                "${lecturerAttendances[lecturerId]!.length} sessions",
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 14,
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
@@ -327,14 +361,14 @@ class LecturerAttendanceList extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isPresent ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                            color: Colors.blue.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isPresent ? 'Present' : 'Absent',
-                            style: TextStyle(
+                            hasComments ? 'Has Notes' : 'No Notes',
+                            style: const TextStyle(
                               fontWeight: FontWeight.w500,
-                              color: isPresent ? Colors.green : Colors.red,
+                              color: Colors.blue,
                             ),
                           ),
                         ),
@@ -344,20 +378,24 @@ class LecturerAttendanceList extends StatelessWidget {
                     _buildInfoRow(
                       Icons.book,
                       'Unit',
-                      attendanceData['unit'] ?? 'Not specified'
+                      firstAttendanceData['unitId'] ?? 'Not specified'
+                    ),
+                    _buildInfoRow(
+                      Icons.school,
+                      'Course',
+                      firstAttendanceData['courseName'] ?? 'Not specified'
                     ),
                     _buildInfoRow(
                       Icons.calendar_today,
-                      'Date',
-                      attendanceData['date'] != null 
-                        ? _formatDate(attendanceData['date']) 
-                        : 'Not recorded'
+                      'Last Date',
+                      _formatDate(firstAttendanceData['attendanceDate'])
                     ),
-                    _buildInfoRow(
-                      Icons.access_time,
-                      'Time',
-                      attendanceData['time'] ?? 'Not recorded'
-                    ),
+                    if (hasComments)
+                      _buildInfoRow(
+                        Icons.comment,
+                        'Comments',
+                        firstAttendanceData['lecturerComments'] ?? ''
+                      ),
                   ],
                 ),
               ),
@@ -405,6 +443,8 @@ class LecturerAttendanceList extends StatelessWidget {
     if (timestamp is Timestamp) {
       final date = timestamp.toDate();
       return '${date.day}/${date.month}/${date.year}';
+    } else if (timestamp is String) {
+      return timestamp;
     }
     return 'Unknown';
   }

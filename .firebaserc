@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "attendance-c4b89",
+    "attendance": "attedance-2b596"
+  },
+  "targets": {},
+  "etags": {},
+  "dataconnectEmulatorConfig": {}
+}
