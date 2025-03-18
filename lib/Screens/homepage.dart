@@ -1,7 +1,7 @@
 // Update your homepage.dart file
 
 import 'package:attendanceweb/Features/Auth/auth.dart';
-import 'package:attendanceweb/Screens/attendance_screen.dart';
+import 'package:attendanceweb/Screens/attendance/attendance_screen.dart';
 import 'package:attendanceweb/Screens/course_screen.dart';
 import 'package:attendanceweb/Screens/lecture_screen.dart';
 import 'package:attendanceweb/Screens/student_screen.dart';
