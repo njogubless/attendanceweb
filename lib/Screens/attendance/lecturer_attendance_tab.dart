@@ -5,12 +5,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 
 class LecturerAttendanceTab extends StatelessWidget {
-  const LecturerAttendanceTab({Key? key}) : super(key: key);
+  final Function(Map<String, List<AttendanceModel>>) onDataLoaded;
+
+  const LecturerAttendanceTab({
+    Key? key,
+    required this.onDataLoaded,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('attendances').snapshots(),
+      stream: FirebaseFirestore.instance
+        .collection('attendances')
+        .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -43,6 +50,11 @@ class LecturerAttendanceTab extends StatelessWidget {
         if (lecturerAttendances.isEmpty) {
           return const Center(child: Text('No lecturer data available'));
         }
+        
+        // Notify parent about loaded data for PDF generation
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          onDataLoaded(lecturerAttendances);
+        });
         
         List<String> lecturerIds = lecturerAttendances.keys.toList();
         

@@ -5,7 +5,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 
 class StudentAttendanceTab extends StatelessWidget {
-  const StudentAttendanceTab({Key? key}) : super(key: key);
+  final Function(List<AttendanceModel>) onDataLoaded;
+  
+  const StudentAttendanceTab({
+    Key? key,
+    required this.onDataLoaded,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -24,14 +29,22 @@ class StudentAttendanceTab extends StatelessWidget {
           return const Center(child: Text('No student attendance records available'));
         }
         
+        // Convert data to AttendanceModel objects
+        final attendanceList = snapshot.data!.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return AttendanceModel.fromMap(data);
+        }).toList();
+        
+        // Notify parent about loaded data for PDF generation
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          onDataLoaded(attendanceList);
+        });
+        
         return ListView.builder(
           padding: EdgeInsets.zero,
-          itemCount: snapshot.data!.docs.length,
+          itemCount: attendanceList.length,
           itemBuilder: (context, index) {
-            final attendanceData = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-            final attendance = AttendanceModel.fromMap(attendanceData);
-            
-            return StudentAttendanceCard(attendance: attendance);
+            return StudentAttendanceCard(attendance: attendanceList[index]);
           },
         );
       },
