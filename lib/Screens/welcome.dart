@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:attendanceweb/Services/Providers/analytics_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -94,8 +95,8 @@ class WelcomeSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timeAsyncValue = ref.watch(currentTimeProvider);
-    final analyticsAsyncValue = ref.watch(analyticsProvider);
-    final coursesAsyncValue = ref.watch(coursesRegisteredProvider);
+    final analyticsAsyncValue = ref.watch(userAnalyticsProvider);
+    final coursesAsyncValue = ref.watch(coursesDataProvider);
     
     return Scaffold(
       body: SingleChildScrollView(
@@ -115,9 +116,17 @@ class WelcomeSection extends ConsumerWidget {
             // Quick stats
             analyticsAsyncValue.when(
               data: (analytics) => _buildQuickStats(analytics),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Center(
-                child: Text('Failed to load dashboard data'),
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (error, stack) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40.0),
+                  child: Text('Error loading data: ${error.toString()}'),
+                ),
               ),
             ),
             
@@ -131,14 +140,75 @@ class WelcomeSection extends ConsumerWidget {
             // Courses registered
             coursesAsyncValue.when(
               data: (courses) => _buildCoursesRegistered(courses),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Center(
-                child: Text('Failed to load courses data'),
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (error, stack) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40.0),
+                  child: Text('Error loading courses: ${error.toString()}'),
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildQuickStats(Map<String, int> analytics) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Dashboard Overview',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        GridView.count(
+          crossAxisCount: 4,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _buildStatCard(
+              'Total Students',
+              analytics['students']?.toString() ?? '0',
+              Icons.people,
+              Colors.blue[100]!,
+              Colors.blue[700]!,
+            ),
+            _buildStatCard(
+              'Total Courses',
+              analytics['courses']?.toString() ?? '0',
+              Icons.book,
+              Colors.green[100]!,
+              Colors.green[700]!,
+            ),
+            _buildStatCard(
+              'Total Lecturers',
+              analytics['lecturers']?.toString() ?? '0',
+              Icons.school,
+              Colors.orange[100]!,
+              Colors.orange[700]!,
+            ),
+            _buildStatCard(
+              'Active Users',
+              analytics['activeUsers']?.toString() ?? '0',
+              Icons.person_outline,
+              Colors.purple[100]!,
+              Colors.purple[700]!,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -184,58 +254,6 @@ class WelcomeSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickStats(Map<String, int> analytics) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Dashboard Overview',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 4,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _buildStatCard(
-              'Total Students',
-              analytics['students']?.toString() ?? '0',
-              Icons.people,
-              Colors.blue[100]!,
-              Colors.blue[700]!,
-            ),
-            _buildStatCard(
-              'Total Courses',
-              analytics['lectures']?.toString() ?? '0',
-              Icons.book,
-              Colors.green[100]!,
-              Colors.green[700]!,
-            ),
-            _buildStatCard(
-              'Total Lecturers',
-              analytics['lecturers']?.toString() ?? '0',
-              Icons.school,
-              Colors.orange[100]!,
-              Colors.orange[700]!,
-            ),
-            _buildStatCard(
-              'Active Users',
-              analytics['activeUsers']?.toString() ?? '0',
-              Icons.person_outline,
-              Colors.purple[100]!,
-              Colors.purple[700]!,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 
   Widget _buildStatCard(
     String title,

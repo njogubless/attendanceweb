@@ -78,8 +78,8 @@ class Homepage extends ConsumerWidget {
         );
       case 1:
         return const LecturePage();
-      case 2:
-        return const StudentPage();
+      // case 2:
+      //   return const StudentPage();
       case 3:
         if (courseAttendanceView == 'courses') {
           return const CourseScreen();
