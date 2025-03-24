@@ -10,3 +10,6 @@ final selectedStatusProvider = StateProvider<String>((ref) => 'all');
 
 // Course and attendance submenu
 final courseAttendanceViewProvider = StateProvider<String>((ref) => 'courses');
+
+// Attendance-specific providers 
+final attendanceDetailProvider = StateProvider<Map<String, dynamic>>((ref) => {});
