@@ -1,3 +1,4 @@
+import 'package:attendanceweb/Core/utility/pdf_export_manager.dart';
 import 'package:attendanceweb/Features/Models/attendance_model.dart';
 import 'package:attendanceweb/Services/attendance_service.dart';
 import 'package:attendanceweb/Services/Providers/status_providers.dart';
@@ -17,7 +18,7 @@ class AttendanceScreen extends ConsumerWidget {
     final attendanceService = AttendanceService();
 
     return DefaultTabController(
-      length: 4,  // Number of tabs
+      length: 4, // Number of tabs
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Attendance Records'),
@@ -85,22 +86,26 @@ class AttendanceScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAttendanceList(AttendanceService attendanceService, String status) {
+  Widget _buildAttendanceList(
+      AttendanceService attendanceService, String status) {
     return StreamBuilder<List<AttendanceModel>>(
       stream: attendanceService.getAllAttendance(),
       builder: (context, snapshot) {
+        debugPrint('connections State: ${snapshot.connectionState}');
+        debugPrint('Has Data: ${snapshot.hasData}');
+        debugPrint('Error: ${snapshot.error}');
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        
+
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
-        
+
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('No attendance records found'));
         }
-        
+
         // Filter records by status
         final attendanceList = snapshot.data!.where((record) {
           if (status == 'all') {
@@ -108,13 +113,13 @@ class AttendanceScreen extends ConsumerWidget {
           }
           return record.status.toLowerCase() == status.toLowerCase();
         }).toList();
-        
+
         if (attendanceList.isEmpty) {
           return Center(
             child: Text('No $status attendance records found'),
           );
         }
-        
+
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: attendanceList.length,
@@ -131,7 +136,7 @@ class AttendanceScreen extends ConsumerWidget {
 
 class AttendanceCard extends StatelessWidget {
   final AttendanceModel attendance;
-  
+
   const AttendanceCard({
     Key? key,
     required this.attendance,
@@ -165,7 +170,7 @@ class AttendanceCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                
+
                 // Main information
                 Expanded(
                   child: Column(
@@ -188,7 +193,7 @@ class AttendanceCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // Status text
                 Chip(
                   label: Text(
@@ -202,9 +207,9 @@ class AttendanceCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             const Divider(height: 24),
-            
+
             // Course details
             Row(
               children: [
@@ -224,7 +229,7 @@ class AttendanceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            
+
             // Lecturer details
             Row(
               children: [
@@ -244,7 +249,7 @@ class AttendanceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            
+
             // Venue details
             Row(
               children: [
@@ -256,9 +261,9 @@ class AttendanceCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Action buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -266,7 +271,8 @@ class AttendanceCard extends StatelessWidget {
                 if (attendance.status.toLowerCase() == 'pending')
                   TextButton.icon(
                     icon: const Icon(Icons.check, color: Colors.green),
-                    label: const Text('Approve', style: TextStyle(color: Colors.green)),
+                    label: const Text('Approve',
+                        style: TextStyle(color: Colors.green)),
                     onPressed: () {
                       _updateAttendanceStatus(attendance, 'approved');
                     },
@@ -276,7 +282,8 @@ class AttendanceCard extends StatelessWidget {
                 if (attendance.status.toLowerCase() == 'pending')
                   TextButton.icon(
                     icon: const Icon(Icons.close, color: Colors.red),
-                    label: const Text('Reject', style: TextStyle(color: Colors.red)),
+                    label: const Text('Reject',
+                        style: TextStyle(color: Colors.red)),
                     onPressed: () {
                       _updateAttendanceStatus(attendance, 'rejected');
                     },
@@ -284,7 +291,8 @@ class AttendanceCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 TextButton.icon(
                   icon: const Icon(Icons.delete_outline, color: Colors.grey),
-                  label: const Text('Delete', style: TextStyle(color: Colors.grey)),
+                  label: const Text('Delete',
+                      style: TextStyle(color: Colors.grey)),
                   onPressed: () {
                     _deleteAttendance(attendance);
                   },
@@ -296,7 +304,7 @@ class AttendanceCard extends StatelessWidget {
       ),
     );
   }
-  
+
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
@@ -309,7 +317,7 @@ class AttendanceCard extends StatelessWidget {
         return Colors.blue;
     }
   }
-  
+
   IconData _getStatusIcon(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
@@ -322,7 +330,7 @@ class AttendanceCard extends StatelessWidget {
         return Icons.info;
     }
   }
-  
+
   Future<String> _getCourseNameById(String courseId) async {
     try {
       final doc = await FirebaseFirestore.instance
@@ -334,7 +342,7 @@ class AttendanceCard extends StatelessWidget {
       return courseId;
     }
   }
-  
+
   Future<String> _getLecturerNameById(String lecturerId) async {
     try {
       final doc = await FirebaseFirestore.instance
@@ -346,12 +354,12 @@ class AttendanceCard extends StatelessWidget {
       return lecturerId;
     }
   }
-  
+
   void _updateAttendanceStatus(AttendanceModel attendance, String newStatus) {
     final updatedAttendance = attendance.copyWith(status: newStatus);
     AttendanceService().updateAttendance(updatedAttendance);
   }
-  
+
   void _deleteAttendance(AttendanceModel attendance) {
     // Show confirmation dialog before deleting
     AttendanceService().deleteAttendance(attendance.courseId, attendance.id);
