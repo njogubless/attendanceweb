@@ -177,7 +177,7 @@ class AttendanceCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Student ID: ${attendance.presentStudents.first}',
+                        'Student ID: ${attendance.presentStudents.isNotEmpty ? attendance.presentStudents.first : 'N/A'}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
