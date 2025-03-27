@@ -52,18 +52,55 @@ class AttendanceScreen extends ConsumerWidget {
             unselectedLabelColor: Colors.grey,
             indicatorColor: const Color(0xFF075983),
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.print),
-              onPressed: () {
-                // Implement print functionality
+           actions: [
+            // Export Dropdown Menu
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                _handleExportAction(context, ref, value);
               },
-            ),
-            IconButton(
-              icon: const Icon(Icons.download),
-              onPressed: () {
-                // Implement export functionality
-              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem(
+                  value: 'preview',
+                  child: Row(
+                    children: [
+                      Icon(Icons.preview, color: Colors.black54),
+                      SizedBox(width: 8),
+                      Text('Preview'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'save',
+                  child: Row(
+                    children: [
+                      Icon(Icons.save_alt, color: Colors.black54),
+                      SizedBox(width: 8),
+                      Text('Save to Device'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'share',
+                  child: Row(
+                    children: [
+                      Icon(Icons.share, color: Colors.black54),
+                      SizedBox(width: 8),
+                      Text('Share'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'pdf',
+                  child: Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf, color: Colors.black54),
+                      SizedBox(width: 8),
+                      Text('Export PDF'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -85,6 +122,72 @@ class AttendanceScreen extends ConsumerWidget {
       ),
     );
   }
+
+ void _handleExportAction(BuildContext context, WidgetRef ref, String action) async {
+  // Get the current selected status
+  final status = ref.read(selectedStatusProvider);
+  
+  // Fetch attendance records based on current status
+  final attendanceService = AttendanceService();
+  final records = await attendanceService.getAllAttendance().first;
+  
+  // Filter records based on current status
+  final filteredRecords = records.where((record) {
+    if (status == 'all') return true;
+    return record.status.toLowerCase() == status.toLowerCase();
+  }).toList();
+
+  // Create PDF Export Manager
+  final pdfExportManager = PdfExportManager();
+  pdfExportManager.setStudentAttendances(filteredRecords);
+
+  // Perform selected action
+  switch (action) {
+    case 'preview':
+      pdfExportManager.previewPdf(context, isStudent: true);
+      break;
+    case 'save':
+      pdfExportManager.savePdfToDevice(context, isStudent: true);
+      break;
+    case 'share':
+      pdfExportManager.sharePdf(context, isStudent: true);
+      break;
+    case 'pdf':
+      pdfExportManager.printPdf(context, isStudent: true);
+      break;
+  }
+}
+
+  // Dialog to show preview of records
+  void _showPreviewDialog(BuildContext context, List<AttendanceModel> records) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Preview Attendance Records'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: records.length,
+            itemBuilder: (context, index) {
+              final record = records[index];
+              return ListTile(
+                title: Text('Student ID: ${record.presentStudents.first}'),
+                subtitle: Text('Course: ${record.courseId}, Status: ${record.status}'),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildAttendanceList(
       AttendanceService attendanceService, String status) {
@@ -185,7 +288,7 @@ class AttendanceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Date: ${attendance.date}',
+                        'Date: ${attendance.attendanceDate}',
                         style: const TextStyle(
                           color: Colors.grey,
                         ),

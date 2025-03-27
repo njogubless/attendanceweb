@@ -211,7 +211,7 @@ class _AttendanceDetailScreenState extends State<AttendanceDetailScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'Date: ${_attendance.date}',
+                                      'Date: ${_attendance.attendanceDate}',
                                       style: const TextStyle(
                                         fontSize: 16,
                                         color: Colors.grey,

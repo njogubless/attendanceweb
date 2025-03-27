@@ -11,36 +11,18 @@ class AttendanceService {
         .doc(courseId)
         .collection('attendances')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => AttendanceModel.fromFirestore(doc.data(), doc.id))
-            .toList())
-        .handleError((error) {
-      print('Error fetching course attendance: $error');
-      return <AttendanceModel>[];
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return AttendanceModel.fromFirestore(doc);
+      }).toList();
     });
   }
 
   Stream<List<AttendanceModel>> getAllAttendance() {
     return _firestore.collection('attendances').snapshots().map((snapshot) {
-      print('Total attendance documents found: ${snapshot.docs.length}');
-
-      final attendanceModels = snapshot.docs
-          .map((doc) {
-            try {
-              print('Processing document: ${doc.id}, Data: ${doc.data()}');
-
-              return AttendanceModel.fromFirestore(doc.data(), doc.id);
-            } catch (e) {
-              print('Error converting document ${doc.id}: $e');
-              return null;
-            }
-          })
-          .whereType<AttendanceModel>()
-          .toList();
-
-      print('Parsed attendance models: ${attendanceModels.length}');
-
-      return attendanceModels;
+      return snapshot.docs.map((doc) {
+        return AttendanceModel.fromFirestore(doc);
+      }).toList();
     });
   }
 
@@ -91,38 +73,17 @@ class AttendanceService {
   }
 
   // Get attendance records for a specific student across all courses
-  Stream<List<AttendanceModel>> getStudentAttendance(String studentId) {
-    return _firestore
-        .collection('courses')
-        .snapshots()
-        .asyncMap((coursesSnapshot) async {
-      List<AttendanceModel> studentAttendance = [];
-
-      for (var courseDoc in coursesSnapshot.docs) {
-        final String courseId = courseDoc.id;
-
-        try {
-          final attendanceSnapshot = await _firestore
-              .collection('courses')
-              .doc(courseId)
-              .collection('attendances')
-              .where('presentStudents', arrayContains: studentId)
-              .get();
-
-          final courseStudentAttendance = attendanceSnapshot.docs
-              .map((doc) => AttendanceModel.fromFirestore(doc.data(), doc.id))
-              .toList();
-
-          studentAttendance.addAll(courseStudentAttendance);
-        } catch (e) {
-          print('Error fetching student attendance for course $courseId: $e');
-        }
-      }
-
-      return studentAttendance;
-    });
-  }
-
+ Stream<List<AttendanceModel>> getStudentAttendance(String studentId) {
+  return _firestore
+      .collection('attendances')
+      .where('studentId', isEqualTo: studentId)
+      .snapshots()
+      .map((snapshot) {
+    return snapshot.docs
+        .map((doc) => AttendanceModel.fromFirestore(doc))
+        .toList();
+  });
+}
   // Get attendance statistics for a course
   Future<Map<String, dynamic>> getCourseAttendanceStats(String courseId) async {
     try {
@@ -133,7 +94,7 @@ class AttendanceService {
           .get();
 
       final attendanceRecords = attendanceSnapshot.docs
-          .map((doc) => AttendanceModel.fromFirestore(doc.data(), doc.id))
+          .map((doc) => AttendanceModel.fromFirestore(doc))
           .toList();
 
       int totalSessions = attendanceRecords.length;
@@ -193,8 +154,10 @@ class AttendanceService {
         .collection('attendances')
         .where('status', isEqualTo: status)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => AttendanceModel.fromFirestore(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return AttendanceModel.fromFirestore(doc);
+      }).toList();
+    });
   }
 }

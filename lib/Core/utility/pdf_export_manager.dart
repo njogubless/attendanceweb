@@ -1,11 +1,12 @@
 import 'package:attendanceweb/Core/utility/pdf_service.dart';
 import 'package:attendanceweb/Core/utility/preview_screen.dart';
-import 'package:attendanceweb/Screens/attendance/attendance_model.dart';
+import 'package:attendanceweb/Features/Models/attendance_model.dart';
+
 import 'package:flutter/material.dart';
 
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'dart:io';
+
 import 'package:share_plus/share_plus.dart';
 
 class PdfExportManager {

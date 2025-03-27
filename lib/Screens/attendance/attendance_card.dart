@@ -1,4 +1,4 @@
-import 'package:attendanceweb/Screens/attendance/attendance_model.dart';
+import 'package:attendanceweb/Features/Models/attendance_model.dart';
 import 'package:attendanceweb/Screens/attendance/formatters.dart';
 import 'package:flutter/material.dart';
 
