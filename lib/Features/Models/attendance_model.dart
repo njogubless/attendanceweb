@@ -4,6 +4,8 @@ class AttendanceModel {
   final String id;
   final String? studentId;
   final String? studentName;
+  final String? studentEmail;
+  final String? studentComments;
   final String courseId;
   final String? courseName;
   final String? unitId;
@@ -12,6 +14,8 @@ class AttendanceModel {
   final String? venue;
   final String status;
   final String? lecturerComments;
+  final String? registrationNumber;
+  final bool isSubmitted;
   final List<String> presentStudents;
   final List<String> absentStudents;
   final Map<String, dynamic> additionalData;
@@ -20,6 +24,8 @@ class AttendanceModel {
     required this.id,
     this.studentId,
     this.studentName,
+    this.studentEmail,
+    this.studentComments,
     required this.courseId,
     this.courseName,
     this.unitId,
@@ -28,6 +34,8 @@ class AttendanceModel {
     this.venue,
     required this.status,
     this.lecturerComments,
+    this.registrationNumber,
+    this.isSubmitted = false,
     this.presentStudents = const [],
     this.absentStudents = const [],
     this.additionalData = const {},
@@ -35,26 +43,30 @@ class AttendanceModel {
 
   // Factory constructor from Firestore
   factory AttendanceModel.fromFirestore(DocumentSnapshot doc) {
-  Map<String, dynamic> data = doc.data() as Map<String, dynamic> ?? {};
-  return AttendanceModel(
-    id: doc.id,
-    studentId: data['studentId'],
-    studentName: data['studentName'],
-    courseId: data['courseId'] ?? '',
-    courseName: data['courseName'],
-    unitId: data['unitId'],
-    lecturerId: data['lecturerId'] ?? '',
-    attendanceDate: data['attendanceDate'] is Timestamp
-        ? (data['attendanceDate'] as Timestamp).toDate()
-        : DateTime.now(),
-    venue: data['venue'],
-    status: data['status'] ?? '',
-    lecturerComments: data['lecturerComments'],
-    presentStudents: List<String>.from(data['presentStudents'] ?? []),
-    absentStudents: List<String>.from(data['absentStudents'] ?? []),
-    additionalData: data['additionalData'] ?? {},
-  );
-}
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return AttendanceModel(
+      id: doc.id,
+      studentId: data['studentId'],
+      studentName: data['studentName'],
+      studentEmail: data['studentEmail'],
+      studentComments: data['studentComments'],
+      courseId: data['courseId'] ?? '',
+      courseName: data['courseName'],
+      unitId: data['unitId'],
+      lecturerId: data['lecturerId'] ?? '',
+      attendanceDate: data['attendanceDate'] is Timestamp
+          ? (data['attendanceDate'] as Timestamp).toDate()
+          : DateTime.now(),
+      venue: data['venue'],
+      status: data['status'] ?? '',
+      lecturerComments: data['lecturerComments'],
+      registrationNumber: data['registrationNumber'],
+      isSubmitted: data['isSubmitted'] ?? false,
+      presentStudents: List<String>.from(data['presentStudents'] ?? []),
+      absentStudents: List<String>.from(data['absentStudents'] ?? []),
+      additionalData: data['additionalData'] ?? {},
+    );
+  }
 
   // Factory constructor from Map
   factory AttendanceModel.fromMap(Map<String, dynamic> map) {
@@ -62,6 +74,8 @@ class AttendanceModel {
       id: map['id'] ?? '',
       studentId: map['studentId'],
       studentName: map['studentName'],
+      studentEmail: map['studentEmail'],
+      studentComments: map['studentComments'],
       courseId: map['courseId'] ?? '',
       courseName: map['courseName'],
       unitId: map['unitId'],
@@ -72,6 +86,8 @@ class AttendanceModel {
       venue: map['venue'],
       status: map['status'] ?? '',
       lecturerComments: map['lecturerComments'],
+      registrationNumber: map['registrationNumber'],
+      isSubmitted: map['isSubmitted'] ?? false,
       presentStudents: List<String>.from(map['presentStudents'] ?? []),
       absentStudents: List<String>.from(map['absentStudents'] ?? []),
       additionalData: map['additionalData'] ?? {},
@@ -84,6 +100,8 @@ class AttendanceModel {
       'id': id,
       'studentId': studentId,
       'studentName': studentName,
+      'studentEmail': studentEmail,
+      'studentComments': studentComments,
       'courseId': courseId,
       'courseName': courseName,
       'unitId': unitId,
@@ -92,6 +110,8 @@ class AttendanceModel {
       'venue': venue,
       'status': status,
       'lecturerComments': lecturerComments,
+      'registrationNumber': registrationNumber,
+      'isSubmitted': isSubmitted,
       'presentStudents': presentStudents,
       'absentStudents': absentStudents,
       'additionalData': additionalData,
@@ -103,6 +123,8 @@ class AttendanceModel {
     String? id,
     String? studentId,
     String? studentName,
+    String? studentEmail,
+    String? studentComments,
     String? courseId,
     String? courseName,
     String? unitId,
@@ -111,6 +133,8 @@ class AttendanceModel {
     String? venue,
     String? status,
     String? lecturerComments,
+    String? registrationNumber,
+    bool? isSubmitted,
     List<String>? presentStudents,
     List<String>? absentStudents,
     Map<String, dynamic>? additionalData,
@@ -119,6 +143,8 @@ class AttendanceModel {
       id: id ?? this.id,
       studentId: studentId ?? this.studentId,
       studentName: studentName ?? this.studentName,
+      studentEmail: studentEmail ?? this.studentEmail,
+      studentComments: studentComments ?? this.studentComments,
       courseId: courseId ?? this.courseId,
       courseName: courseName ?? this.courseName,
       unitId: unitId ?? this.unitId,
@@ -127,6 +153,8 @@ class AttendanceModel {
       venue: venue ?? this.venue,
       status: status ?? this.status,
       lecturerComments: lecturerComments ?? this.lecturerComments,
+      registrationNumber: registrationNumber ?? this.registrationNumber,
+      isSubmitted: isSubmitted ?? this.isSubmitted,
       presentStudents: presentStudents ?? this.presentStudents,
       absentStudents: absentStudents ?? this.absentStudents,
       additionalData: additionalData ?? this.additionalData,

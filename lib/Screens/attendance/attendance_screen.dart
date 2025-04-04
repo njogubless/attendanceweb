@@ -42,7 +42,7 @@ class AttendanceScreen extends ConsumerWidget {
                   break;
               }
             },
-            tabs: const [
+            tabs: const [ 
               Tab(text: 'All'),
               Tab(text: 'Approved'),
               Tab(text: 'Pending'),

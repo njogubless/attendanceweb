@@ -27,7 +27,7 @@ class AttendancePdfService {
           pw.Table(
             border: pw.TableBorder.all(),
             columnWidths: {
-              0: const pw.FlexColumnWidth(2),
+              0: const pw.FlexColumnWidth(2.5),
               1: const pw.FlexColumnWidth(2),
               2: const pw.FlexColumnWidth(1.5),
               3: const pw.FlexColumnWidth(1.5),
@@ -36,7 +36,7 @@ class AttendancePdfService {
             children: [
               // Header row
               pw.TableRow(
-                decoration: pw.BoxDecoration(color: PdfColors.grey300),
+                decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                 children: [
                   pw.Padding(
                     padding: const pw.EdgeInsets.all(8),
@@ -71,6 +71,12 @@ class AttendancePdfService {
                         pw.Text(attendance['studentName'] ?? 'Unknown'),
                         pw.Text(attendance['studentId'] ?? '',
                             style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                        if (attendance['studentEmail'] != null && attendance['studentEmail'].toString().isNotEmpty)
+                          pw.Text(attendance['studentEmail'].toString(),
+                              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+                        if (attendance['registrationNumber'] != null && attendance['registrationNumber'].toString().isNotEmpty)
+                          pw.Text('Reg: ${attendance['registrationNumber']}',
+                              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
                       ],
                     ),
                   ),
@@ -99,6 +105,45 @@ class AttendancePdfService {
               )),
             ],
           ),
+          pw.SizedBox(height: 20),
+          // Add comments section if any comments exist
+          ...attendances
+              .where((attendance) => 
+                  (attendance['studentComments'] != null && attendance['studentComments'].toString().isNotEmpty) || 
+                  (attendance['lecturerComments'] != null && attendance['lecturerComments'].toString().isNotEmpty))
+              .map((attendance) => pw.Container(
+                    margin: const pw.EdgeInsets.only(bottom: 8),
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey400),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Comments for ${attendance['studentName'] ?? 'Unknown'}:',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.SizedBox(height: 4),
+                        if (attendance['lecturerComments'] != null && attendance['lecturerComments'].toString().isNotEmpty)
+                          pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Lecturer: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                              pw.Text(attendance['lecturerComments'].toString(), style: const pw.TextStyle(fontSize: 10)),
+                              pw.SizedBox(height: 4),
+                            ],
+                          ),
+                        if (attendance['studentComments'] != null && attendance['studentComments'].toString().isNotEmpty)
+                          pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Student: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                              pw.Text(attendance['studentComments'].toString(), style: const pw.TextStyle(fontSize: 10)),
+                            ],
+                          ),
+                      ],
+                    ),
+                  )).toList(),
           pw.SizedBox(height: 20),
           pw.Text('Generated on: ${DateTime.now().toString().split('.').first}',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
@@ -159,11 +204,12 @@ class AttendancePdfService {
                     1: const pw.FlexColumnWidth(1.5),
                     2: const pw.FlexColumnWidth(1.5),
                     3: const pw.FlexColumnWidth(1),
+                    4: const pw.FlexColumnWidth(1),
                   },
                   children: [
                     // Header row
                     pw.TableRow(
-                      decoration: pw.BoxDecoration(color: PdfColors.grey300),
+                      decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                       children: [
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
@@ -180,6 +226,10 @@ class AttendancePdfService {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
                           child: pw.Text('Venue', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text('Status', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -201,6 +251,15 @@ class AttendancePdfService {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
                           child: pw.Text(attendance['venue'] ?? 'Not specified'),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            attendance['isSubmitted'] == true ? 'Submitted' : 'Pending',
+                            style: pw.TextStyle(
+                              color: attendance['isSubmitted'] == true ? PdfColors.green : PdfColors.orange,
+                            ),
+                          ),
                         ),
                       ],
                     )),
@@ -259,9 +318,23 @@ class AttendancePdfService {
     if (timestamp is Timestamp) {
       final date = timestamp.toDate();
       return '${date.day}/${date.month}/${date.year}';
+    } else if (timestamp is DateTime) {
+      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
     } else if (timestamp is String) {
       return timestamp;
     }
     return 'Unknown';
+  }
+
+  // Share the generated PDF file
+  static Future<void> sharePdf(File file) async {
+    await Share.shareXFiles([XFile(file.path)], text: 'Sharing attendance report');
+  }
+
+  // Print the PDF
+  static Future<void> printPdf(pw.Document pdf) async {
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
   }
 }
