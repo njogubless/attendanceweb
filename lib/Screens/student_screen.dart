@@ -2,17 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Provider for students data
+// Provider for students data from users collection
 final studentsProvider = StreamProvider<List<DocumentSnapshot>>((ref) {
-  return FirebaseFirestore.instance
-      .collection('students')
-      .orderBy('dateAdded', descending: true)
-      .snapshots()
-      .map((snapshot) => snapshot.docs);
+  final currentFilter = ref.watch(studentFilterProvider);
+  
+  // Base query to get users with role "student"
+  var query = FirebaseFirestore.instance
+      .collection('users')
+      .where('role', isEqualTo: 'student')
+      .orderBy('dateAdded', descending: true);
+  
+  // Apply status filter if not "All"
+  if (currentFilter != 'All') {
+    query = query.where('status', isEqualTo: currentFilter.toLowerCase());
+  }
+  
+  return query.snapshots().map((snapshot) => snapshot.docs);
 });
 
 // Provider for filter state
-final filterProvider = StateProvider<String>((ref) => 'All');
+final studentFilterProvider = StateProvider<String>((ref) => 'All');
+
+// Provider for search query
+final studentSearchProvider = StateProvider<String>((ref) => '');
 
 class StudentPage extends ConsumerWidget {
   const StudentPage({Key? key}) : super(key: key);
@@ -20,7 +32,8 @@ class StudentPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final studentsAsync = ref.watch(studentsProvider);
-    final currentFilter = ref.watch(filterProvider);
+    final currentFilter = ref.watch(studentFilterProvider);
+    final searchQuery = ref.watch(studentSearchProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -84,7 +97,7 @@ class StudentPage extends ConsumerWidget {
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onChanged: (value) {
-                // Implement search functionality here
+                ref.read(studentSearchProvider.notifier).state = value;
               },
             ),
             
@@ -96,11 +109,19 @@ class StudentPage extends ConsumerWidget {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (err, stack) => Center(child: Text('Error: $err')),
                 data: (students) {
-                  // Filter students based on selected filter
-                  final filteredStudents = currentFilter == 'All'
-                      ? students
-                      : students.where((doc) => 
-                          doc['status'] == currentFilter.toLowerCase()).toList();
+                  // Apply search filter
+                  final filteredStudents = searchQuery.isEmpty 
+                      ? students 
+                      : students.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final name = data['name'] ?? '';
+                          final email = data['email'] ?? '';
+                          final studentId = data['studentId'] ?? '';
+                          
+                          return name.toString().toLowerCase().contains(searchQuery.toLowerCase()) ||
+                                 email.toString().toLowerCase().contains(searchQuery.toLowerCase()) ||
+                                 studentId.toString().toLowerCase().contains(searchQuery.toLowerCase());
+                        }).toList();
                   
                   if (filteredStudents.isEmpty) {
                     return const Center(
@@ -125,7 +146,9 @@ class StudentPage extends ConsumerWidget {
                           leading: CircleAvatar(
                             backgroundColor: _getStatusColor(studentData['status'] ?? 'pending'),
                             child: Text(
-                              studentData['name'].substring(0, 1).toUpperCase(),
+                              studentData['name'] != null && studentData['name'].toString().isNotEmpty
+                                  ? studentData['name'].toString().substring(0, 1).toUpperCase()
+                                  : '?',
                               style: const TextStyle(color: Colors.white),
                             ),
                           ),
@@ -208,7 +231,7 @@ class StudentPage extends ConsumerWidget {
       selected: isSelected,
       onSelected: (selected) {
         if (selected) {
-          ref.read(filterProvider.notifier).state = label;
+          ref.read(studentFilterProvider.notifier).state = label;
         }
       },
       selectedColor: const Color.fromARGB(255, 7, 89, 131).withOpacity(0.2),
@@ -236,6 +259,7 @@ class StudentPage extends ConsumerWidget {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
     final idController = TextEditingController();
+    final passwordController = TextEditingController();
     
     showDialog(
       context: context,
@@ -256,16 +280,24 @@ class StudentPage extends ConsumerWidget {
               TextField(
                 controller: emailController,
                 decoration: const InputDecoration(
-                  labelText: 'Email Address',
+                  labelText: 'Email',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: idController,
                 decoration: const InputDecoration(
                   labelText: 'Student ID',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -279,16 +311,25 @@ class StudentPage extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              if (nameController.text.isNotEmpty && 
-                  emailController.text.isNotEmpty && 
-                  idController.text.isNotEmpty) {
-                _addStudent(
-                  nameController.text,
-                  emailController.text,
-                  idController.text,
+              if (nameController.text.isEmpty || 
+                  emailController.text.isEmpty || 
+                  idController.text.isEmpty ||
+                  passwordController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please fill all fields')),
                 );
-                Navigator.pop(context);
+                return;
               }
+              
+              _addStudent(
+                context,
+                nameController.text.trim(),
+                emailController.text.trim(),
+                idController.text.trim(),
+                passwordController.text.trim(),
+              );
+              
+              Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color.fromARGB(255, 7, 89, 131),
@@ -298,6 +339,35 @@ class StudentPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _addStudent(
+    BuildContext context, 
+    String name, 
+    String email, 
+    String studentId, 
+    String password
+  ) async {
+    try {
+      // Create a new user document
+      await FirebaseFirestore.instance.collection('users').add({
+        'name': name,
+        'email': email,
+        'studentId': studentId,
+        'password': password, // Note: In production, use Firebase Auth for secure authentication
+        'role': 'student',
+        'status': 'pending',
+        'dateAdded': FieldValue.serverTimestamp(),
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Student added successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
   }
 
   void _showEditStudentDialog(BuildContext context, String studentId, Map<String, dynamic> studentData) {
@@ -324,10 +394,9 @@ class StudentPage extends ConsumerWidget {
               TextField(
                 controller: emailController,
                 decoration: const InputDecoration(
-                  labelText: 'Email Address',
+                  labelText: 'Email',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
@@ -347,17 +416,24 @@ class StudentPage extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              if (nameController.text.isNotEmpty && 
-                  emailController.text.isNotEmpty && 
-                  idController.text.isNotEmpty) {
-                _updateStudent(
-                  studentId,
-                  nameController.text,
-                  emailController.text,
-                  idController.text,
+              if (nameController.text.isEmpty || 
+                  emailController.text.isEmpty || 
+                  idController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please fill all fields')),
                 );
-                Navigator.pop(context);
+                return;
               }
+              
+              _updateStudent(
+                context,
+                studentId,
+                nameController.text.trim(),
+                emailController.text.trim(),
+                idController.text.trim(),
+              );
+              
+              Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color.fromARGB(255, 7, 89, 131),
@@ -367,6 +443,31 @@ class StudentPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _updateStudent(
+    BuildContext context, 
+    String documentId, 
+    String name, 
+    String email, 
+    String studentId
+  ) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(documentId).update({
+        'name': name,
+        'email': email,
+        'studentId': studentId,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Student updated successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
   }
 
   void _showDeleteConfirmation(BuildContext context, String studentId) {
@@ -382,7 +483,7 @@ class StudentPage extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              _deleteStudent(studentId);
+              _deleteStudent(context, studentId);
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
@@ -395,31 +496,28 @@ class StudentPage extends ConsumerWidget {
     );
   }
 
-  void _addStudent(String name, String email, String studentId) {
-    FirebaseFirestore.instance.collection('students').add({
-      'name': name,
-      'email': email,
-      'studentId': studentId,
-      'status': 'pending',
-      'dateAdded': FieldValue.serverTimestamp(),
-    });
+  Future<void> _deleteStudent(BuildContext context, String documentId) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(documentId).delete();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Student deleted successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
   }
 
-  void _updateStudent(String studentId, String name, String email, String id) {
-    FirebaseFirestore.instance.collection('students').doc(studentId).update({
-      'name': name,
-      'email': email,
-      'studentId': id,
-    });
-  }
-
-  void _updateStudentStatus(String studentId, String status) {
-    FirebaseFirestore.instance.collection('students').doc(studentId).update({
-      'status': status,
-    });
-  }
-
-  void _deleteStudent(String studentId) {
-    FirebaseFirestore.instance.collection('students').doc(studentId).delete();
+  Future<void> _updateStudentStatus(String documentId, String status) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(documentId).update({
+        'status': status,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error updating status: $e');
+    }
   }
 }

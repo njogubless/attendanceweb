@@ -2,14 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Provider for lecturers data
+// Provider for lecturers data from users collection
 final lecturersProvider = StreamProvider<List<DocumentSnapshot>>((ref) {
-  return FirebaseFirestore.instance
-      .collection('lecturers')
-      .orderBy('dateAdded', descending: true)
-      .snapshots()
-      .map((snapshot) => snapshot.docs);
+  final currentFilter = ref.watch(lecturerFilterProvider);
+  
+  // Base query to get users with role "lecturer"
+  var query = FirebaseFirestore.instance
+      .collection('users')
+      .where('role', isEqualTo: 'lecturer')
+      .orderBy('dateAdded', descending: true);
+  
+  // Apply status filter if not "All"
+  if (currentFilter != 'All') {
+    query = query.where('status', isEqualTo: currentFilter.toLowerCase());
+  }
+  
+  return query.snapshots().map((snapshot) => snapshot.docs);
 });
+
+// Provider for filter state
+final lecturerFilterProvider = StateProvider<String>((ref) => 'All');
+
+// Provider for search query
+final lecturerSearchProvider = StateProvider<String>((ref) => '');
 
 class LecturePage extends ConsumerWidget {
   const LecturePage({Key? key}) : super(key: key);
@@ -17,6 +32,8 @@ class LecturePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final lecturersAsync = ref.watch(lecturersProvider);
+    final currentFilter = ref.watch(lecturerFilterProvider);
+    final searchQuery = ref.watch(lecturerSearchProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -54,16 +71,16 @@ class LecturePage extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             
-            // Filter options (can be expanded)
+            // Filter options
             Row(
               children: [
-                _buildFilterChip('All', true),
+                _buildFilterChip(context, ref, 'All', currentFilter == 'All'),
                 const SizedBox(width: 8),
-                _buildFilterChip('Approved', false),
+                _buildFilterChip(context, ref, 'Approved', currentFilter == 'Approved'),
                 const SizedBox(width: 8),
-                _buildFilterChip('Pending', false),
+                _buildFilterChip(context, ref, 'Pending', currentFilter == 'Pending'),
                 const SizedBox(width: 8),
-                _buildFilterChip('Rejected', false),
+                _buildFilterChip(context, ref, 'Rejected', currentFilter == 'Rejected'),
               ],
             ),
             
@@ -81,6 +98,9 @@ class LecturePage extends ConsumerWidget {
                 filled: true,
                 fillColor: Colors.grey.shade100,
               ),
+              onChanged: (value) {
+                ref.read(lecturerSearchProvider.notifier).state = value;
+              },
             ),
             
             const SizedBox(height: 24),
@@ -89,7 +109,21 @@ class LecturePage extends ConsumerWidget {
             Expanded(
               child: lecturersAsync.when(
                 data: (lecturers) {
-                  if (lecturers.isEmpty) {
+                  // Apply search filter
+                  final filteredLecturers = searchQuery.isEmpty 
+                      ? lecturers 
+                      : lecturers.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final name = data['name'] ?? '';
+                          final email = data['email'] ?? '';
+                          final department = data['department'] ?? '';
+                          
+                          return name.toString().toLowerCase().contains(searchQuery.toLowerCase()) ||
+                                 email.toString().toLowerCase().contains(searchQuery.toLowerCase()) ||
+                                 department.toString().toLowerCase().contains(searchQuery.toLowerCase());
+                        }).toList();
+                  
+                  if (filteredLecturers.isEmpty) {
                     return const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -127,7 +161,7 @@ class LecturePage extends ConsumerWidget {
                           DataColumn(label: Text('Status')),
                           DataColumn(label: Text('Actions')),
                         ],
-                        rows: lecturers.map((doc) {
+                        rows: filteredLecturers.map((doc) {
                           final data = doc.data() as Map<String, dynamic>;
                           final status = data['status'] ?? 'pending';
                           
@@ -173,12 +207,14 @@ class LecturePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected) {
+  Widget _buildFilterChip(BuildContext context, WidgetRef ref, String label, bool isSelected) {
     return FilterChip(
       label: Text(label),
       selected: isSelected,
-      onSelected: (bool selected) {
-        // Implement filter logic here
+      onSelected: (selected) {
+        if (selected) {
+          ref.read(lecturerFilterProvider.notifier).state = label;
+        }
       },
       backgroundColor: Colors.grey.shade200,
       selectedColor: const Color.fromARGB(255, 7, 89, 131).withOpacity(0.2),
@@ -444,7 +480,7 @@ class LecturePage extends ConsumerWidget {
     );
   }
 
-  // Function to add lecturer to Firestore
+  // Function to add lecturer to Firestore users collection
   Future<void> _addLecturerToFirestore(
     String name,
     String email,
@@ -467,12 +503,13 @@ class LecturePage extends ConsumerWidget {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // Add data to Firestore
-      await FirebaseFirestore.instance.collection('lecturers').add({
+      // Add data to Firestore users collection
+      await FirebaseFirestore.instance.collection('users').add({
         'name': name,
         'email': email,
         'phone': phone,
         'department': department,
+        'role': 'lecturer', // Set role to lecturer
         'status': 'pending', // Default status
         'dateAdded': FieldValue.serverTimestamp(),
       });
@@ -503,7 +540,7 @@ class LecturePage extends ConsumerWidget {
     }
   }
 
-  // Function to update lecturer in Firestore
+  // Function to update lecturer in Firestore users collection
   Future<void> _updateLecturerInFirestore(
     String docId,
     String name,
@@ -528,8 +565,8 @@ class LecturePage extends ConsumerWidget {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // Update data in Firestore
-      await FirebaseFirestore.instance.collection('lecturers').doc(docId).update({
+      // Update data in Firestore users collection
+      await FirebaseFirestore.instance.collection('users').doc(docId).update({
         'name': name,
         'email': email,
         'phone': phone,
@@ -564,7 +601,7 @@ class LecturePage extends ConsumerWidget {
     }
   }
 
-  // Function to delete lecturer from Firestore
+  // Function to delete lecturer from Firestore users collection
   Future<void> _deleteLecturerFromFirestore(
     String docId,
     BuildContext context,
@@ -577,8 +614,8 @@ class LecturePage extends ConsumerWidget {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // Delete data from Firestore
-      await FirebaseFirestore.instance.collection('lecturers').doc(docId).delete();
+      // Delete data from Firestore users collection
+      await FirebaseFirestore.instance.collection('users').doc(docId).delete();
 
       // Close loading dialog
       Navigator.of(context).pop();
