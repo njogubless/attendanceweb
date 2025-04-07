@@ -312,102 +312,447 @@ class WelcomeSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickAccess(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Access',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            _buildActionButton(
-              'Lectures',
-              Icons.book,
-              Colors.blue,
-              () => switchPage(1, false),
-            ),
-            const SizedBox(width: 16),
-            _buildActionButton(
-              'Students',
-              Icons.people,
-              Colors.green,
-              () => switchPage(2, false),
-            ),
-            const SizedBox(width: 16),
-            _buildActionButton(
-              'Add Lecture',
-              Icons.add_circle_outline,
-              Colors.orange,
-              () {
-                // You could navigate to a form to add a new lecture
-                // For now, just show a snackbar
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Add Lecture form would open here')),
-                );
-              },
-            ),
-             _buildActionButton(
-              'Add Student',
-              Icons.add_circle_outline,
-              Colors.purple,
-              () {
-                // You could navigate to a form to add a new lecture
-                // For now, just show a snackbar
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Add Lecture form would open here')),
-                );
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 
-  Widget _buildActionButton(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: 160,
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3)),
+Widget _buildQuickAccess(BuildContext context) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Quick Access',
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
         ),
+      ),
+      const SizedBox(height: 16),
+      Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        children: [
+          _buildActionButton(
+            'Lectures',
+            Icons.book,
+            Colors.blue,
+            () => switchPage(1, false),
+          ),
+          _buildActionButton(
+            'Students',
+            Icons.people,
+            Colors.green,
+            () => switchPage(2, false),
+          ),
+          _buildActionButton(
+            'Add Lecture',
+            Icons.add_circle_outline,
+            Colors.orange,
+            () {
+              // Navigate to add lecture form or show dialog
+              _showAddLectureDialog(context);
+            },
+          ),
+          _buildActionButton(
+            'Add Student',
+            Icons.person_add,
+            Colors.purple,
+            () {
+              // Navigate to add student form or show dialog
+              _showAddStudentDialog(context);
+            },
+          ),
+          _buildActionButton(
+            'Add Lecturer',
+            Icons.person_add,
+            Colors.red,
+            () {
+              // Navigate to add lecturer form or show dialog
+              _showAddLecturerDialog(context);
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+// Helper method for action buttons
+Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+  return InkWell(
+    onTap: onPressed,
+    child: Container(
+      width: 150,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 32,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// Dialog to add a new lecture
+void _showAddLectureDialog(BuildContext context) {
+  final courseNameController = TextEditingController();
+  final courseCodeController = TextEditingController();
+  final lecturerController = TextEditingController();
+  
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Add New Lecture'),
+      content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: 32,
+            TextField(
+              controller: courseNameController,
+              decoration: const InputDecoration(
+                labelText: 'Course Name',
+                border: OutlineInputBorder(),
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: color,
+            const SizedBox(height: 16),
+            TextField(
+              controller: courseCodeController,
+              decoration: const InputDecoration(
+                labelText: 'Course Code',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: lecturerController,
+              decoration: const InputDecoration(
+                labelText: 'Lecturer',
+                border: OutlineInputBorder(),
               ),
             ),
           ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (courseNameController.text.isEmpty || 
+                courseCodeController.text.isEmpty || 
+                lecturerController.text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please fill all fields')),
+              );
+              return;
+            }
+            
+            _addLecture(
+              context,
+              courseNameController.text.trim(),
+              courseCodeController.text.trim(),
+              lecturerController.text.trim(),
+            );
+            
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+          ),
+          child: const Text('Add'),
+        ),
+      ],
+    ),
+  );
+}
+
+// Method to add a new lecture to Firestore
+Future<void> _addLecture(
+  BuildContext context, 
+  String courseName, 
+  String courseCode, 
+  String lecturer
+) async {
+  try {
+    await FirebaseFirestore.instance.collection('courses').add({
+      'name': courseName,
+      'code': courseCode,
+      'lecturer': lecturer,
+      'dateAdded': FieldValue.serverTimestamp(),
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Lecture added successfully')),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${e.toString()}')),
     );
   }
+}
+
+// Dialog to add a new student
+void _showAddStudentDialog(BuildContext context) {
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final idController = TextEditingController();
+  final passwordController = TextEditingController();
+  
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Add New Student'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: idController,
+              decoration: const InputDecoration(
+                labelText: 'Student ID',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (nameController.text.isEmpty || 
+                emailController.text.isEmpty || 
+                idController.text.isEmpty ||
+                passwordController.text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please fill all fields')),
+              );
+              return;
+            }
+            
+            _addStudent(
+              context,
+              nameController.text.trim(),
+              emailController.text.trim(),
+              idController.text.trim(),
+              passwordController.text.trim(),
+            );
+            
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple,
+          ),
+          child: const Text('Add'),
+        ),
+      ],
+    ),
+  );
+}
+
+// Method to add a new student to Firestore
+Future<void> _addStudent(
+  BuildContext context, 
+  String name, 
+  String email, 
+  String studentId, 
+  String password
+) async {
+  try {
+    await FirebaseFirestore.instance.collection('users').add({
+      'name': name,
+      'email': email,
+      'studentId': studentId,
+      'password': password, // In production, use Firebase Auth
+      'role': 'student',
+      'status': 'pending',
+      'dateAdded': FieldValue.serverTimestamp(),
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Student added successfully')),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${e.toString()}')),
+    );
+  }
+}
+
+// Dialog to add a new lecturer
+void _showAddLecturerDialog(BuildContext context) {
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final idController = TextEditingController();
+  final passwordController = TextEditingController();
+  final departmentController = TextEditingController();
+  
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Add New Lecturer'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: idController,
+              decoration: const InputDecoration(
+                labelText: 'Lecturer ID',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: departmentController,
+              decoration: const InputDecoration(
+                labelText: 'Department',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (nameController.text.isEmpty || 
+                emailController.text.isEmpty || 
+                idController.text.isEmpty ||
+                passwordController.text.isEmpty ||
+                departmentController.text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please fill all fields')),
+              );
+              return;
+            }
+            
+            _addLecturer(
+              context,
+              nameController.text.trim(),
+              emailController.text.trim(),
+              idController.text.trim(),
+              departmentController.text.trim(),
+              passwordController.text.trim(),
+            );
+            
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+          ),
+          child: const Text('Add'),
+        ),
+      ],
+    ),
+  );
+}
+
+// Method to add a new lecturer to Firestore
+Future<void> _addLecturer(
+  BuildContext context, 
+  String name, 
+  String email, 
+  String lecturerId, 
+  String department,
+  String password
+) async {
+  try {
+    await FirebaseFirestore.instance.collection('users').add({
+      'name': name,
+      'email': email,
+      'lecturerId': lecturerId,
+      'department': department,
+      'password': password, // In production, use Firebase Auth
+      'role': 'lecturer',
+      'status': 'pending',
+      'dateAdded': FieldValue.serverTimestamp(),
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Lecturer added successfully')),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${e.toString()}')),
+    );
+  }
+}
+
+
 
   Widget _buildCoursesRegistered(List<Map<String, dynamic>> courses) {
     return Column(
