@@ -352,6 +352,18 @@ class WelcomeSection extends ConsumerWidget {
                 );
               },
             ),
+             _buildActionButton(
+              'Add Student',
+              Icons.add_circle_outline,
+              Colors.purple,
+              () {
+                // You could navigate to a form to add a new lecture
+                // For now, just show a snackbar
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Add Lecture form would open here')),
+                );
+              },
+            ),
           ],
         ),
       ],

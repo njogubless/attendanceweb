@@ -1,5 +1,3 @@
-// Update your homepage.dart file
-
 import 'package:attendanceweb/Features/Auth/auth.dart';
 import 'package:attendanceweb/Screens/attendance/attendance_screen.dart';
 import 'package:attendanceweb/Screens/course_screen.dart';
@@ -68,7 +66,7 @@ final sidebarStatsProvider = StreamProvider<Map<String, int>>((ref) {
 class Homepage extends ConsumerWidget {
   const Homepage({super.key});
 
-  Widget _showSection(int index, String status, String courseAttendanceView, WidgetRef ref) {
+  Widget _showSection(int index, WidgetRef ref) {
     switch (index) {
       case 0:
         return WelcomeSection(
@@ -78,14 +76,12 @@ class Homepage extends ConsumerWidget {
         );
       case 1:
         return const LecturePage();
-      // case 2:
-      //   return const StudentPage();
+      case 2:
+        return const StudentPage();
       case 3:
-        if (courseAttendanceView == 'courses') {
-          return const CourseScreen();
-        } else {
-          return const AttendanceScreen();
-        }
+        return const CourseScreen();
+      case 4:
+        return const AttendanceScreen();
       default:
         AuthService().signOut(ref);
         return const Center();
@@ -95,8 +91,6 @@ class Homepage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = ref.watch(selectedIndexProvider);
-    final selectedStatus = ref.watch(selectedStatusProvider);
-    final courseAttendanceView = ref.watch(courseAttendanceViewProvider);
     final sidebarStatsAsync = ref.watch(sidebarStatsProvider);
 
     return Scaffold(
@@ -129,7 +123,7 @@ class Homepage extends ConsumerWidget {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      // Home
+                      // Dashboard
                       _buildMenuItem(
                         context: context,
                         ref: ref,
@@ -139,34 +133,44 @@ class Homepage extends ConsumerWidget {
                         selectedIndex: selectedIndex,
                       ),
 
-                      // Lectures with dropdown
-                      _buildExpandableMenuItem(
+                      // Lecturers - direct navigation
+                      _buildMenuItem(
                         context: context,
                         ref: ref,
                         icon: Icons.school,
                         label: 'Lecturers',
                         index: 1,
                         selectedIndex: selectedIndex,
-                        selectedStatus: selectedStatus,
                       ),
 
-                      // Students with dropdown
-                      _buildExpandableMenuItem(
+                      // Students - direct navigation
+                      _buildMenuItem(
                         context: context,
                         ref: ref,
                         icon: Icons.people,
                         label: 'Students',
                         index: 2,
                         selectedIndex: selectedIndex,
-                        selectedStatus: selectedStatus,
                       ),
                       
-                      // Course and Attendance section
-                      _buildCourseAttendanceMenu(
+                      // Courses - direct navigation
+                      _buildMenuItem(
                         context: context,
                         ref: ref,
+                        icon: Icons.book,
+                        label: 'Courses',
+                        index: 3,
                         selectedIndex: selectedIndex,
-                        courseAttendanceView: courseAttendanceView,
+                      ),
+                      
+                      // Attendance - direct navigation
+                      _buildMenuItem(
+                        context: context,
+                        ref: ref,
+                        icon: Icons.event_available,
+                        label: 'Attendance',
+                        index: 4,
+                        selectedIndex: selectedIndex,
                       ),
                       
                       const SizedBox(height: 16),
@@ -283,7 +287,7 @@ class Homepage extends ConsumerWidget {
 
           // Main content area
           Expanded(
-            child: _showSection(selectedIndex, selectedStatus, courseAttendanceView, ref),
+            child: _showSection(selectedIndex, ref),
           ),
         ],
       ),
@@ -316,170 +320,10 @@ class Homepage extends ConsumerWidget {
         if (index >= 0) {
           // Update selected index
           ref.read(selectedIndexProvider.notifier).state = index;
-          // Reset to "all" view when changing main menu items
-          ref.read(selectedStatusProvider.notifier).state = 'all';
         } else {
           // Logout
           AuthService().signOut(ref);
         }
-      },
-    );
-  }
-  
-  // Expandable menu item with status options
-  Widget _buildExpandableMenuItem({
-    required BuildContext context,
-    required WidgetRef ref,
-    required IconData icon,
-    required String label,
-    required int index,
-    required int selectedIndex,
-    required String selectedStatus,
-  }) {
-    final isSelected = selectedIndex == index;
-    final isExpanded = isSelected;
-    
-    return Column(
-      children: [
-        ListTile(
-          leading: Icon(icon, color: isSelected ? Colors.white : Colors.white),
-          title: Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.white,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          trailing: Icon(
-            isExpanded ? Icons.expand_less : Icons.expand_more,
-            color: Colors.white70,
-          ),
-          tileColor: isSelected ? Colors.white10 : Colors.transparent,
-          onTap: () {
-            ref.read(selectedIndexProvider.notifier).state = index;
-            ref.read(selectedStatusProvider.notifier).state = 'all';
-          },
-        ),
-        if (isExpanded)
-          Column(
-            children: [
-              _buildStatusOption(context, ref, 'All', 'all', selectedStatus),
-              _buildStatusOption(context, ref, 'Approved', 'approved', selectedStatus),
-              _buildStatusOption(context, ref, 'Pending', 'pending', selectedStatus),
-              _buildStatusOption(context, ref, 'Rejected', 'rejected', selectedStatus),
-            ],
-          ),
-      ],
-    );
-  }
-  
-  // Individual status option
-  Widget _buildStatusOption(
-    BuildContext context, 
-    WidgetRef ref, 
-    String label, 
-    String status, 
-    String selectedStatus
-  ) {
-    final isSelected = selectedStatus == status;
-    
-    return ListTile(
-      contentPadding: const EdgeInsets.only(left: 56.0, right: 16.0),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.white70,
-          fontSize: 14,
-        ),
-      ),
-      tileColor: isSelected ? Colors.white10 : Colors.transparent,
-      dense: true,
-      onTap: () {
-        ref.read(selectedStatusProvider.notifier).state = status;
-      },
-    );
-  }
-  
-  // Course and Attendance menu section
-  Widget _buildCourseAttendanceMenu({
-    required BuildContext context,
-    required WidgetRef ref,
-    required int selectedIndex,
-    required String courseAttendanceView,
-  }) {
-    final isSelected = selectedIndex == 3;
-    
-    return Column(
-      children: [
-        ListTile(
-          leading: Icon(Icons.book, color: isSelected ? Colors.white : Colors.white),
-          title: Text(
-            'Academic',
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.white,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          trailing: Icon(
-            isSelected ? Icons.expand_less : Icons.expand_more,
-            color: Colors.white70,
-          ),
-          tileColor: isSelected ? Colors.white10 : Colors.transparent,
-          onTap: () {
-            ref.read(selectedIndexProvider.notifier).state = 3;
-            ref.read(courseAttendanceViewProvider.notifier).state = 'courses';
-          },
-        ),
-        if (isSelected)
-          Column(
-            children: [
-              _buildAcademicOption(
-                context, 
-                ref, 
-                'Courses', 
-                'courses', 
-                courseAttendanceView,
-                Icons.book
-              ),
-              _buildAcademicOption(
-                context, 
-                ref, 
-                'Attendance', 
-                'attendance', 
-                courseAttendanceView,
-                Icons.event_available
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-  
-  // Individual academic option
-  Widget _buildAcademicOption(
-    BuildContext context, 
-    WidgetRef ref, 
-    String label, 
-    String view, 
-    String selectedView,
-    IconData icon
-  ) {
-    final isSelected = selectedView == view;
-    
-    return ListTile(
-      contentPadding: const EdgeInsets.only(left: 56.0, right: 16.0),
-      leading: Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 16),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.white70,
-          fontSize: 14,
-        ),
-      ),
-      tileColor: isSelected ? Colors.white10 : Colors.transparent,
-      dense: true,
-      onTap: () {
-        ref.read(courseAttendanceViewProvider.notifier).state = view;
       },
     );
   }
