@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:attendanceweb/Core/utility/pdf_export_manager.dart';
 
 // Provider for students data from users collection
 final studentsProvider = StreamProvider<List<DocumentSnapshot>>((ref) {
@@ -41,6 +42,57 @@ class StudentPage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
+        actions: [
+          // Export Dropdown Menu (similar to AttendanceScreen)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              _handleExportAction(context, ref, value);
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem(
+                value: 'preview',
+                child: Row(
+                  children: [
+                    Icon(Icons.preview, color: Colors.black54),
+                    SizedBox(width: 8),
+                    Text('Preview'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'save',
+                child: Row(
+                  children: [
+                    Icon(Icons.save_alt, color: Colors.black54),
+                    SizedBox(width: 8),
+                    Text('Save to Device'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    Icon(Icons.share, color: Colors.black54),
+                    SizedBox(width: 8),
+                    Text('Share'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf, color: Colors.black54),
+                    SizedBox(width: 8),
+                    Text('Export PDF'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -261,6 +313,108 @@ class StudentPage extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // New method for handling export actions (similar to AttendanceScreen)
+  void _handleExportAction(BuildContext context, WidgetRef ref, String action) async {
+    // Get the current selected status
+    final status = ref.read(studentFilterProvider);
+    
+    // Get the current search query
+    final searchQuery = ref.read(studentSearchProvider);
+    
+    // Fetch students based on current filters
+    final studentsSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: 'student')
+        .get();
+    
+    final students = studentsSnapshot.docs;
+    
+    // Apply status filter if not "All"
+    final statusFilteredStudents = (status == 'All')
+        ? students
+        : students.where((doc) {
+            final data = doc.data();
+            return data['status']?.toLowerCase() == status.toLowerCase();
+          }).toList();
+    
+    // Apply search filter if any
+    final filteredStudents = searchQuery.isEmpty
+        ? statusFilteredStudents
+        : statusFilteredStudents.where((doc) {
+            final data = doc.data();
+            final name = data['name'] ?? '';
+            final email = data['email'] ?? '';
+            final studentId = data['studentId'] ?? '';
+
+            return name.toString().toLowerCase().contains(searchQuery.toLowerCase()) ||
+                email.toString().toLowerCase().contains(searchQuery.toLowerCase()) ||
+                studentId.toString().toLowerCase().contains(searchQuery.toLowerCase());
+          }).toList();
+    
+    // Convert to a format compatible with PdfExportManager
+    final studentRecords = filteredStudents.map((doc) {
+      final data = doc.data();
+      return {
+        'id': doc.id,
+        'name': data['name'] ?? 'Unknown',
+        'email': data['email'] ?? 'N/A',
+        'studentId': data['studentId'] ?? 'N/A',
+        'status': data['status'] ?? 'pending',
+        'dateAdded': data['dateAdded'] ?? Timestamp.now(),
+      };
+    }).toList();
+    
+    // Create PDF Export Manager
+    final pdfExportManager = PdfExportManager();
+    pdfExportManager.setStudentRecords(studentRecords);
+
+    // Perform selected action
+    switch (action) {
+      case 'preview':
+        pdfExportManager.previewPdf(context, isStudent: true);
+        break;
+      case 'save':
+        pdfExportManager.savePdfToDevice(context, isStudent: true);
+        break;
+      case 'share':
+        pdfExportManager.sharePdf(context, isStudent: true);
+        break;
+      case 'pdf':
+        pdfExportManager.printPdf(context, isStudent: true);
+        break;
+    }
+  }
+
+  // Preview Dialog for students (can be used separately)
+  void _showPreviewDialog(BuildContext context, List<Map<String, dynamic>> students) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Preview Student Records'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: students.length,
+            itemBuilder: (context, index) {
+              final student = students[index];
+              return ListTile(
+                title: Text('${student['name']}'),
+                subtitle: Text('ID: ${student['studentId']}, Status: ${student['status']}'),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }

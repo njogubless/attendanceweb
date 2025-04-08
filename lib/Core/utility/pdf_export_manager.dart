@@ -12,9 +12,15 @@ import 'package:share_plus/share_plus.dart';
 class PdfExportManager {
   List<AttendanceModel> _studentAttendances = [];
   Map<String, List<AttendanceModel>> _lecturerAttendances = {};
+    List<Map<String, dynamic>> _studentRecords = [];
   
   bool get hasStudentData => _studentAttendances.isNotEmpty;
   bool get hasLecturerData => _lecturerAttendances.isNotEmpty;
+
+
+   void setStudentRecords(List<Map<String, dynamic>> records) {
+    _studentRecords = records;
+  }
   
   void setStudentAttendances(List<AttendanceModel> attendances) {
     _studentAttendances = attendances;

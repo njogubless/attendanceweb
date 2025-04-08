@@ -44,6 +44,7 @@ class LecturePage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
+        
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
