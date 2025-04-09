@@ -140,7 +140,7 @@ class AttendanceScreen extends ConsumerWidget {
 
     // Create PDF Export Manager
     final pdfExportManager = PdfExportManager();
-    pdfExportManager.setStudentAttendances(filteredRecords);
+    pdfExportManager.setStudentAttendances(filteredRecords.cast<Map<String, dynamic>>());
 
     // Perform selected action
     switch (action) {
@@ -275,17 +275,27 @@ class AttendanceCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
-                // Main information
+                // Main information with student name instead of ID
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Student ID: ${attendance.presentStudents.isNotEmpty ? attendance.presentStudents.first : 'N/A'}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      FutureBuilder<String>(
+                        future: attendance.presentStudents.isNotEmpty
+                            ? _getUserNameById(attendance.presentStudents.first)
+                            : Future.value('N/A'),
+                        builder: (context, snapshot) {
+                          final studentId = attendance.presentStudents.isNotEmpty
+                              ? attendance.presentStudents.first
+                              : 'N/A';
+                          return Text(
+                            'Student: ${snapshot.data ?? studentId}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -315,38 +325,39 @@ class AttendanceCard extends StatelessWidget {
             const Divider(height: 24),
 
             // Course details
-           Row(
-  children: [
-    const Icon(Icons.school, size: 18, color: Colors.grey),
-    const SizedBox(width: 8),
-    Expanded(
-      child: FutureBuilder<String>(
-        future: attendance.courseName != null 
-            ? Future.value(attendance.courseName)
-            : _getCourseNameById(attendance.unitId ?? attendance.courseId),
-        builder: (context, snapshot) {
-          return Text(
-            'Course: ${snapshot.data ?? 'Not checked'}',
-            style: const TextStyle(fontSize: 14),
-          );
-        },
-      ),
-    ),
-  ],
-),
+            Row(
+              children: [
+                const Icon(Icons.school, size: 18, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FutureBuilder<String>(
+                    future: attendance.courseName != null 
+                        ? Future.value(attendance.courseName)
+                        : _getCourseNameById(attendance.unitId ?? attendance.courseId),
+                    builder: (context, snapshot) {
+                      return Text(
+                        'Course: ${snapshot.data ?? 'Not checked'}',
+                        style: const TextStyle(fontSize: 14),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
 
-            // Lecturer details
+            // Lecturer details - updated to use the users collection
             Row(
               children: [
                 const Icon(Icons.person, size: 18, color: Colors.grey),
                 const SizedBox(width: 8),
                 Expanded(
                   child: FutureBuilder<String>(
-                    future: _getLecturerNameById(attendance.lecturerId),
+                    future: _getUserNameById(attendance.lecturerId ?? attendance.lecturerName ?? ''),
+                    initialData: attendance.lecturerName,
                     builder: (context, snapshot) {
                       return Text(
-                        'Lecturer: ${snapshot.data ?? attendance.lecturerId}',
+                        'Lecturer: ${snapshot.data ?? 'Not specified'}',
                         style: const TextStyle(fontSize: 14),
                       );
                     },
@@ -436,7 +447,39 @@ class AttendanceCard extends StatelessWidget {
     }
   }
 
-  // In the AttendanceCard class, update these methods:
+  // New method to get user name from users collection
+  Future<String> _getUserNameById(String userId) async {
+    if (userId.isEmpty) return 'Not specified';
+    
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      if (doc.exists) {
+        // Get name directly from the name field as shown in your screenshot
+        final name = doc.data()?['name'];
+        if (name != null && name.isNotEmpty) {
+          return name;
+        }
+        
+        // Fallback to other possible name fields if needed
+        final firstName = doc.data()?['firstName'] ?? '';
+        final lastName = doc.data()?['lastName'] ?? '';
+        
+        if (firstName.isNotEmpty || lastName.isNotEmpty) {
+          return '$firstName $lastName'.trim();
+        }
+        
+        return userId;
+      }
+      return userId;
+    } catch (e) {
+      debugPrint('Error fetching user: $e');
+      return userId;
+    }
+  }
 
   Future<String> _getCourseNameById(String courseId) async {
     try {
@@ -456,6 +499,7 @@ class AttendanceCard extends StatelessWidget {
     }
   }
 
+  // Keep this method for backward compatibility or if lecturer info is still stored in lecturers collection
   Future<String> _getLecturerNameById(String lecturerId) async {
     try {
       final doc = await FirebaseFirestore.instance

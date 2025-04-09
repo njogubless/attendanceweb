@@ -10,6 +10,7 @@ class AttendanceModel {
   final String? courseName;
   final String? unitId;
   final String lecturerId;
+  final String lecturerName; // Ensure this is initialized
   final DateTime attendanceDate;
   final String? venue;
   final String status;
@@ -30,6 +31,7 @@ class AttendanceModel {
     this.courseName,
     this.unitId,
     required this.lecturerId,
+    required this.lecturerName,
     required this.attendanceDate,
     this.venue,
     required this.status,
@@ -42,41 +44,55 @@ class AttendanceModel {
   });
 
   // Factory constructor from Firestore
- factory AttendanceModel.fromFirestore(DocumentSnapshot doc) {
-  Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-  return AttendanceModel(
-    id: doc.id,
-    studentId: data['studentId'],
-    studentName: data['studentName'],
-    studentEmail: data['studentEmail'],
-    studentComments: data['studentComments'],
-    courseId: data['courseId'] ?? data['unitId'] ?? '', // Try both fields
-    courseName: data['courseName'] ?? data['unitName'], // Try both fields
-    unitId: data['unitId'],
-    lecturerId: data['lecturerId'] ?? '',
-    attendanceDate: data['attendanceDate'] is Timestamp
-        ? (data['attendanceDate'] as Timestamp).toDate()
-        : (data['date'] is Timestamp 
-            ? (data['date'] as Timestamp).toDate() 
-            : DateTime.now()),
-    venue: data['venue'],
-    status: data['status'] ?? 'pending',
-    lecturerComments: data['lecturerComments'],
-    registrationNumber: data['registrationNumber'],
-    isSubmitted: data['isSubmitted'] ?? false,
-    presentStudents: data['studentId'] != null 
-        ? [data['studentId']] 
-        : List<String>.from(data['presentStudents'] ?? []),
-    absentStudents: List<String>.from(data['absentStudents'] ?? []),
-    additionalData: Map<String, dynamic>.from(data)
-      ..removeWhere((key, value) => [
-        'id', 'studentId', 'studentName', 'studentEmail', 'studentComments',
-        'courseId', 'courseName', 'unitId', 'lecturerId', 'attendanceDate',
-        'venue', 'status', 'lecturerComments', 'registrationNumber',
-        'isSubmitted', 'presentStudents', 'absentStudents'
-      ].contains(key)),
-  );
-}
+  factory AttendanceModel.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return AttendanceModel(
+      id: doc.id,
+      studentId: data['studentId'],
+      studentName: data['studentName'],
+      studentEmail: data['studentEmail'],
+      studentComments: data['studentComments'],
+      courseId: data['courseId'] ?? data['unitId'] ?? '', // Try both fields
+      courseName: data['courseName'] ?? data['unitName'], // Try both fields
+      unitId: data['unitId'],
+      lecturerName: data['lecturerName'] ?? '',
+      lecturerId: data['lecturerId'] ?? '',
+      attendanceDate: data['attendanceDate'] is Timestamp
+          ? (data['attendanceDate'] as Timestamp).toDate()
+          : (data['date'] is Timestamp
+              ? (data['date'] as Timestamp).toDate()
+              : DateTime.now()),
+      venue: data['venue'],
+      status: data['status'] ?? 'pending',
+      lecturerComments: data['lecturerComments'],
+      registrationNumber: data['registrationNumber'],
+      isSubmitted: data['isSubmitted'] ?? false,
+      presentStudents: data['studentId'] != null
+          ? [data['studentId']]
+          : List<String>.from(data['presentStudents'] ?? []),
+      absentStudents: List<String>.from(data['absentStudents'] ?? []),
+      additionalData: Map<String, dynamic>.from(data)
+        ..removeWhere((key, value) => [
+              'id',
+              'studentId',
+              'studentName',
+              'studentEmail',
+              'studentComments',
+              'courseId',
+              'courseName',
+              'unitId',
+              'lecturerId',
+              'attendanceDate',
+              'venue',
+              'status',
+              'lecturerComments',
+              'registrationNumber',
+              'isSubmitted',
+              'presentStudents',
+              'absentStudents'
+            ].contains(key)),
+    );
+  }
   // Factory constructor from Map
   factory AttendanceModel.fromMap(Map<String, dynamic> map) {
     return AttendanceModel(
@@ -87,7 +103,8 @@ class AttendanceModel {
       studentComments: map['studentComments'],
       courseId: map['courseId'] ?? '',
       courseName: map['courseName'],
-      unitId: map['unitId'],
+      lecturerName: map['lecturerName'] ?? '',
+     
       lecturerId: map['lecturerId'] ?? '',
       attendanceDate: map['attendanceDate'] is DateTime
           ? map['attendanceDate']
@@ -112,7 +129,8 @@ class AttendanceModel {
       'studentEmail': studentEmail,
       'studentComments': studentComments,
       'courseId': courseId,
-      'courseName': courseName,
+      'lecturerName': lecturerName,
+      'attendanceDate': attendanceDate,
       'unitId': unitId,
       'lecturerId': lecturerId,
       'attendanceDate': attendanceDate,
@@ -134,11 +152,12 @@ class AttendanceModel {
     String? studentName,
     String? studentEmail,
     String? studentComments,
-    String? courseId,
+    String? lecturerName,
+    DateTime? attendanceDate,
     String? courseName,
     String? unitId,
     String? lecturerId,
-    DateTime? attendanceDate,
+   
     String? venue,
     String? status,
     String? lecturerComments,
@@ -153,12 +172,13 @@ class AttendanceModel {
       studentId: studentId ?? this.studentId,
       studentName: studentName ?? this.studentName,
       studentEmail: studentEmail ?? this.studentEmail,
-      studentComments: studentComments ?? this.studentComments,
+      lecturerName: lecturerName ?? this.lecturerName,
+      attendanceDate: attendanceDate ?? this.attendanceDate,
       courseId: courseId ?? this.courseId,
       courseName: courseName ?? this.courseName,
       unitId: unitId ?? this.unitId,
       lecturerId: lecturerId ?? this.lecturerId,
-      attendanceDate: attendanceDate ?? this.attendanceDate,
+    
       venue: venue ?? this.venue,
       status: status ?? this.status,
       lecturerComments: lecturerComments ?? this.lecturerComments,

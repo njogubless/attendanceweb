@@ -287,7 +287,7 @@ class AttendancePdfService {
                 pw.SizedBox(height: 24),
               ],
             );
-          }).toList(),
+          }),
           pw.Text('Generated on: ${DateTime.now().toString().split('.').first}',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
         ],
@@ -337,4 +337,171 @@ class AttendancePdfService {
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
   }
+
+// In AttendancePdfService.dart
+static Future<pw.Document> generateStudentListPdf(List<Map<String, dynamic>> students) async {
+  final pdf = pw.Document();
+  
+  pdf.addPage(
+    pw.Page(
+      build: (context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text('Student Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 20),
+            pw.Text('Generated on: ${DateTime.now().toString().substring(0, 16)}'),
+            pw.SizedBox(height: 20),
+            _buildStudentTable(students),
+          ],
+        );
+      },
+    ),
+  );
+  
+  return pdf;
+}
+
+static pw.Widget _buildStudentTable(List<Map<String, dynamic>> students) {
+  return pw.Table(
+    border: pw.TableBorder.all(),
+    columnWidths: {
+      0: const pw.FlexColumnWidth(3), // Name
+      1: const pw.FlexColumnWidth(2), // Student ID
+      2: const pw.FlexColumnWidth(3), // Email
+      3: const pw.FlexColumnWidth(2), // Status
+    },
+    children: [
+      // Header row
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+        children: [
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text('Name', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text('Student ID', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text('Email', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text('Status', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+        ],
+      ),
+      // Data rows
+      ...students.map((student) => pw.TableRow(
+        children: [
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(student['name'] ?? 'Unknown'),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(student['studentId'] ?? 'N/A'),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(student['email'] ?? 'N/A'),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(student['status'] ?? 'pending'),
+          ),
+        ],
+      )),
+    ],
+  );
+}
+
+
+
+
+
+// In AttendancePdfService.dart
+static Future<pw.Document> generateLecturerListPdf(List<Map<String, dynamic>> students) async {
+  final pdf = pw.Document();
+  
+  pdf.addPage(
+    pw.Page(
+      build: (context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text('Student Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 20),
+            pw.Text('Generated on: ${DateTime.now().toString().substring(0, 16)}'),
+            pw.SizedBox(height: 20),
+            _buildStudentTable(students),
+          ],
+        );
+      },
+    ),
+  );
+  
+  return pdf;
+}
+
+static pw.Widget _buildLecturerTable(List<Map<String, dynamic>> students) {
+  return pw.Table(
+    border: pw.TableBorder.all(),
+    columnWidths: {
+      0: const pw.FlexColumnWidth(3), // Name
+      1: const pw.FlexColumnWidth(2), // Student ID
+      2: const pw.FlexColumnWidth(3), // Email
+      3: const pw.FlexColumnWidth(2), // Status
+    },
+    children: [
+      // Header row
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+        children: [
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text('Name', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text('Student ID', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text('Email', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text('Status', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+        ],
+      ),
+      // Data rows
+      ...students.map((student) => pw.TableRow(
+        children: [
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(student['name'] ?? 'Unknown'),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(student['studentId'] ?? 'N/A'),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(student['email'] ?? 'N/A'),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(student['status'] ?? 'pending'),
+          ),
+        ],
+      )),
+    ],
+  );
+}
+
 }

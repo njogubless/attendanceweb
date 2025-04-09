@@ -1,3 +1,4 @@
+import 'package:attendanceweb/Core/utility/pdf_export_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,7 +45,6 @@ class LecturePage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
-        
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -61,15 +61,33 @@ class LecturePage extends ConsumerWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _showAddLecturerDialog(context);
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Lecturer'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 7, 89, 131),
-                  ),
+                Row(
+                  children: [
+                    // New Export List button
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        lecturersAsync.whenData((lecturers) {
+                          _exportLecturerList(context, lecturers);
+                        });
+                      },
+                      icon: const Icon(Icons.download),
+                      label: const Text('Export List'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 7, 89, 131),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        _showAddLecturerDialog(context);
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Lecturer'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 7, 89, 131),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -82,7 +100,6 @@ class LecturePage extends ConsumerWidget {
                 const SizedBox(width: 8),
                 _buildFilterChip(
                     context, ref, 'Active', currentFilter == 'Active'),
-              
               ],
             ),
 
@@ -169,7 +186,7 @@ class LecturePage extends ConsumerWidget {
                           DataColumn(label: Text('Name')),
                           DataColumn(label: Text('Email')),
                           DataColumn(label: Text('Department')),
-                          
+                          DataColumn(label: Text('Phone')),
                           DataColumn(label: Text('Status')),
                           DataColumn(label: Text('Actions')),
                         ],
@@ -182,7 +199,7 @@ class LecturePage extends ConsumerWidget {
                               DataCell(Text(data['name'] ?? 'N/A')),
                               DataCell(Text(data['email'] ?? 'N/A')),
                               DataCell(Text(data['department'] ?? 'N/A')),
-                            
+                              DataCell(Text(data['phone'] ?? 'N/A')),                            
                               DataCell(_buildStatusBadge(status)),
                               DataCell(Row(
                                 children: [
@@ -215,6 +232,76 @@ class LecturePage extends ConsumerWidget {
                   child: Text('Error: ${error.toString()}'),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // PDF Export functionality
+  void _exportLecturerList(BuildContext context, List<DocumentSnapshot> lecturers) {
+    final pdfManager = PdfExportManager();
+    
+    // Convert Firestore documents to the format required by the PDF service
+    final lecturerRecords = lecturers.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'name': data['name'] ?? 'N/A',
+        'lecturerId': doc.id,
+        'email': data['email'] ?? 'N/A',
+        'department': data['department'] ?? 'N/A',
+        'phone': data['phone'] ?? 'N/A',
+        'status': data['status'] ?? 'pending',
+      };
+    }).toList();
+    
+    // Set the data and generate the PDF
+    pdfManager.setLecturerRecords(lecturerRecords);
+    
+    // Show the export options dialog
+    _showExportOptionsDialog(context, pdfManager);
+  }
+
+  void _showExportOptionsDialog(BuildContext context, PdfExportManager pdfManager) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Export Options'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.preview),
+              title: const Text('Preview'),
+              onTap: () {
+                Navigator.pop(context);
+                pdfManager.previewPdf(context, isStudent: false);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.save),
+              title: const Text('Save to Device'),
+              onTap: () {
+                Navigator.pop(context);
+                pdfManager.savePdfToDevice(context, isStudent: false);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Share'),
+              onTap: () {
+                Navigator.pop(context);
+                pdfManager.sharePdf(context, isStudent: false);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.print),
+              title: const Text('Print'),
+              onTap: () {
+                Navigator.pop(context);
+                pdfManager.printPdf(context, isStudent: false);
+              },
             ),
           ],
         ),
@@ -495,126 +582,127 @@ class LecturePage extends ConsumerWidget {
       },
     );
   }
-// Function to add lecturer to Firestore users collection
-Future<void> _addLecturerToFirestore(
-  String name,
-  String email,
-  String phone,
-  String department,
-  BuildContext context,
-) async {
-  if (name.isEmpty || email.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Name and Email are required')),
-    );
-    return;
+  
+  // Function to add lecturer to Firestore users collection
+  Future<void> _addLecturerToFirestore(
+    String name,
+    String email,
+    String phone,
+    String department,
+    BuildContext context,
+  ) async {
+    if (name.isEmpty || email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name and Email are required')),
+      );
+      return;
+    }
+
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Add data to Firestore users collection
+      await FirebaseFirestore.instance.collection('users').add({
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'department': department,
+        'role': 'lecturer', // Set role to lecturer
+        'status': 'active', // Default status as seen in your database
+        // Removed dateAdded field as it's not present in your database
+      });
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+      // Close the form dialog
+      Navigator.of(context).pop();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lecturer $name added successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      // Close loading dialog
+      Navigator.of(context).pop();
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding lecturer: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  try {
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
+  // Function to update lecturer in Firestore users collection
+  Future<void> _updateLecturerInFirestore(
+    String docId,
+    String name,
+    String email,
+    String phone,
+    String department,
+    String status,
+    BuildContext context,
+  ) async {
+    if (name.isEmpty || email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name and Email are required')),
+      );
+      return;
+    }
 
-    // Add data to Firestore users collection
-    await FirebaseFirestore.instance.collection('users').add({
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'department': department,
-      'role': 'lecturer', // Set role to lecturer
-      'status': 'active', // Default status as seen in your database
-      // Removed dateAdded field as it's not present in your database
-    });
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
 
-    // Close loading dialog
-    Navigator.of(context).pop();
-    // Close the form dialog
-    Navigator.of(context).pop();
+      // Update data in Firestore users collection
+      await FirebaseFirestore.instance.collection('users').doc(docId).update({
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'department': department,
+        'status': status,
+        // Removed dateUpdated field as it's not present/needed
+      });
 
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Lecturer $name added successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  } catch (e) {
-    // Close loading dialog
-    Navigator.of(context).pop();
-    
-    // Show error message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error adding lecturer: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
+      // Close loading dialog
+      Navigator.of(context).pop();
+      // Close the form dialog
+      Navigator.of(context).pop();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lecturer $name updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      // Close loading dialog
+      Navigator.of(context).pop();
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating lecturer: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
-}
-
-// Function to update lecturer in Firestore users collection
-Future<void> _updateLecturerInFirestore(
-  String docId,
-  String name,
-  String email,
-  String phone,
-  String department,
-  String status,
-  BuildContext context,
-) async {
-  if (name.isEmpty || email.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Name and Email are required')),
-    );
-    return;
-  }
-
-  try {
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    // Update data in Firestore users collection
-    await FirebaseFirestore.instance.collection('users').doc(docId).update({
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'department': department,
-      'status': status,
-      // Removed dateUpdated field as it's not present/needed
-    });
-
-    // Close loading dialog
-    Navigator.of(context).pop();
-    // Close the form dialog
-    Navigator.of(context).pop();
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Lecturer $name updated successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  } catch (e) {
-    // Close loading dialog
-    Navigator.of(context).pop();
-    
-    // Show error message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error updating lecturer: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-}
 
   // Function to delete lecturer from Firestore users collection
   Future<void> _deleteLecturerFromFirestore(
