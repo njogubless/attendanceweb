@@ -42,7 +42,7 @@ class AttendanceScreen extends ConsumerWidget {
                   break;
               }
             },
-            tabs: const [ 
+            tabs: const [
               Tab(text: 'All'),
               Tab(text: 'Approved'),
               Tab(text: 'Pending'),
@@ -52,7 +52,7 @@ class AttendanceScreen extends ConsumerWidget {
             unselectedLabelColor: Colors.grey,
             indicatorColor: const Color(0xFF075983),
           ),
-           actions: [
+          actions: [
             // Export Dropdown Menu
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
@@ -123,40 +123,41 @@ class AttendanceScreen extends ConsumerWidget {
     );
   }
 
- void _handleExportAction(BuildContext context, WidgetRef ref, String action) async {
-  // Get the current selected status
-  final status = ref.read(selectedStatusProvider);
-  
-  // Fetch attendance records based on current status
-  final attendanceService = AttendanceService();
-  final records = await attendanceService.getAllAttendance().first;
-  
-  // Filter records based on current status
-  final filteredRecords = records.where((record) {
-    if (status == 'all') return true;
-    return record.status.toLowerCase() == status.toLowerCase();
-  }).toList();
+  void _handleExportAction(
+      BuildContext context, WidgetRef ref, String action) async {
+    // Get the current selected status
+    final status = ref.read(selectedStatusProvider);
 
-  // Create PDF Export Manager
-  final pdfExportManager = PdfExportManager();
-  pdfExportManager.setStudentAttendances(filteredRecords);
+    // Fetch attendance records based on current status
+    final attendanceService = AttendanceService();
+    final records = await attendanceService.getAllAttendance().first;
 
-  // Perform selected action
-  switch (action) {
-    case 'preview':
-      pdfExportManager.previewPdf(context, isStudent: true);
-      break;
-    case 'save':
-      pdfExportManager.savePdfToDevice(context, isStudent: true);
-      break;
-    case 'share':
-      pdfExportManager.sharePdf(context, isStudent: true);
-      break;
-    case 'pdf':
-      pdfExportManager.printPdf(context, isStudent: true);
-      break;
+    // Filter records based on current status
+    final filteredRecords = records.where((record) {
+      if (status == 'all') return true;
+      return record.status.toLowerCase() == status.toLowerCase();
+    }).toList();
+
+    // Create PDF Export Manager
+    final pdfExportManager = PdfExportManager();
+    pdfExportManager.setStudentAttendances(filteredRecords);
+
+    // Perform selected action
+    switch (action) {
+      case 'preview':
+        pdfExportManager.previewPdf(context, isStudent: true);
+        break;
+      case 'save':
+        pdfExportManager.savePdfToDevice(context, isStudent: true);
+        break;
+      case 'share':
+        pdfExportManager.sharePdf(context, isStudent: true);
+        break;
+      case 'pdf':
+        pdfExportManager.printPdf(context, isStudent: true);
+        break;
+    }
   }
-}
 
   // Dialog to show preview of records
   void _showPreviewDialog(BuildContext context, List<AttendanceModel> records) {
@@ -173,7 +174,8 @@ class AttendanceScreen extends ConsumerWidget {
               final record = records[index];
               return ListTile(
                 title: Text('Student ID: ${record.presentStudents.first}'),
-                subtitle: Text('Course: ${record.courseId}, Status: ${record.status}'),
+                subtitle: Text(
+                    'Course: ${record.courseId}, Status: ${record.status}'),
               );
             },
           ),
@@ -187,7 +189,6 @@ class AttendanceScreen extends ConsumerWidget {
       ),
     );
   }
-
 
   Widget _buildAttendanceList(
       AttendanceService attendanceService, String status) {
@@ -314,23 +315,25 @@ class AttendanceCard extends StatelessWidget {
             const Divider(height: 24),
 
             // Course details
-            Row(
-              children: [
-                const Icon(Icons.school, size: 18, color: Colors.grey),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FutureBuilder<String>(
-                    future: _getCourseNameById(attendance.courseId),
-                    builder: (context, snapshot) {
-                      return Text(
-                        'Course: ${snapshot.data ?? attendance.courseId}',
-                        style: const TextStyle(fontSize: 14),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+           Row(
+  children: [
+    const Icon(Icons.school, size: 18, color: Colors.grey),
+    const SizedBox(width: 8),
+    Expanded(
+      child: FutureBuilder<String>(
+        future: attendance.courseName != null 
+            ? Future.value(attendance.courseName)
+            : _getCourseNameById(attendance.unitId ?? attendance.courseId),
+        builder: (context, snapshot) {
+          return Text(
+            'Course: ${snapshot.data ?? 'Not checked'}',
+            style: const TextStyle(fontSize: 14),
+          );
+        },
+      ),
+    ),
+  ],
+),
             const SizedBox(height: 8),
 
             // Lecturer details
@@ -359,12 +362,11 @@ class AttendanceCard extends StatelessWidget {
                 const Icon(Icons.location_on, size: 18, color: Colors.grey),
                 const SizedBox(width: 8),
                 Text(
-                  'Venue: ${attendance.additionalData['venue'] ?? 'Not specified'}',
+                  'Venue: ${attendance.venue ?? 'Not specified'}',
                   style: const TextStyle(fontSize: 14),
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
 
             // Action buttons
@@ -434,14 +436,22 @@ class AttendanceCard extends StatelessWidget {
     }
   }
 
+  // In the AttendanceCard class, update these methods:
+
   Future<String> _getCourseNameById(String courseId) async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('courses')
           .doc(courseId)
           .get();
-      return doc.data()?['name'] ?? courseId;
+
+      // Check if 'coursename' or 'name' field exists
+      if (doc.exists) {
+        return doc.data()?['coursename'] ?? doc.data()?['name'] ?? courseId;
+      }
+      return courseId;
     } catch (e) {
+      debugPrint('Error fetching course: $e');
       return courseId;
     }
   }
@@ -452,8 +462,22 @@ class AttendanceCard extends StatelessWidget {
           .collection('lecturers')
           .doc(lecturerId)
           .get();
-      return '${doc.data()?['firstName'] ?? ''} ${doc.data()?['lastName'] ?? ''}';
+
+      if (doc.exists) {
+        // Try different field names that might contain the lecturer name
+        final firstName = doc.data()?['firstName'] ?? '';
+        final lastName = doc.data()?['lastName'] ?? '';
+
+        if (firstName.isNotEmpty || lastName.isNotEmpty) {
+          return '$firstName $lastName'.trim();
+        }
+
+        // If no first/last name fields, try a direct 'name' field
+        return doc.data()?['name'] ?? lecturerId;
+      }
+      return lecturerId;
     } catch (e) {
+      debugPrint('Error fetching lecturer: $e');
       return lecturerId;
     }
   }

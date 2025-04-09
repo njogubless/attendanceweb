@@ -169,7 +169,7 @@ class LecturePage extends ConsumerWidget {
                           DataColumn(label: Text('Name')),
                           DataColumn(label: Text('Email')),
                           DataColumn(label: Text('Department')),
-                          DataColumn(label: Text('Phone')),
+                          
                           DataColumn(label: Text('Status')),
                           DataColumn(label: Text('Actions')),
                         ],
@@ -182,7 +182,7 @@ class LecturePage extends ConsumerWidget {
                               DataCell(Text(data['name'] ?? 'N/A')),
                               DataCell(Text(data['email'] ?? 'N/A')),
                               DataCell(Text(data['department'] ?? 'N/A')),
-                              DataCell(Text(data['phone'] ?? 'N/A')),
+                            
                               DataCell(_buildStatusBadge(status)),
                               DataCell(Row(
                                 children: [

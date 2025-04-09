@@ -42,32 +42,41 @@ class AttendanceModel {
   });
 
   // Factory constructor from Firestore
-  factory AttendanceModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return AttendanceModel(
-      id: doc.id,
-      studentId: data['studentId'],
-      studentName: data['studentName'],
-      studentEmail: data['studentEmail'],
-      studentComments: data['studentComments'],
-      courseId: data['courseId'] ?? '',
-      courseName: data['courseName'],
-      unitId: data['unitId'],
-      lecturerId: data['lecturerId'] ?? '',
-      attendanceDate: data['attendanceDate'] is Timestamp
-          ? (data['attendanceDate'] as Timestamp).toDate()
-          : DateTime.now(),
-      venue: data['venue'],
-      status: data['status'] ?? '',
-      lecturerComments: data['lecturerComments'],
-      registrationNumber: data['registrationNumber'],
-      isSubmitted: data['isSubmitted'] ?? false,
-      presentStudents: List<String>.from(data['presentStudents'] ?? []),
-      absentStudents: List<String>.from(data['absentStudents'] ?? []),
-      additionalData: data['additionalData'] ?? {},
-    );
-  }
-
+ factory AttendanceModel.fromFirestore(DocumentSnapshot doc) {
+  Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+  return AttendanceModel(
+    id: doc.id,
+    studentId: data['studentId'],
+    studentName: data['studentName'],
+    studentEmail: data['studentEmail'],
+    studentComments: data['studentComments'],
+    courseId: data['courseId'] ?? data['unitId'] ?? '', // Try both fields
+    courseName: data['courseName'] ?? data['unitName'], // Try both fields
+    unitId: data['unitId'],
+    lecturerId: data['lecturerId'] ?? '',
+    attendanceDate: data['attendanceDate'] is Timestamp
+        ? (data['attendanceDate'] as Timestamp).toDate()
+        : (data['date'] is Timestamp 
+            ? (data['date'] as Timestamp).toDate() 
+            : DateTime.now()),
+    venue: data['venue'],
+    status: data['status'] ?? 'pending',
+    lecturerComments: data['lecturerComments'],
+    registrationNumber: data['registrationNumber'],
+    isSubmitted: data['isSubmitted'] ?? false,
+    presentStudents: data['studentId'] != null 
+        ? [data['studentId']] 
+        : List<String>.from(data['presentStudents'] ?? []),
+    absentStudents: List<String>.from(data['absentStudents'] ?? []),
+    additionalData: Map<String, dynamic>.from(data)
+      ..removeWhere((key, value) => [
+        'id', 'studentId', 'studentName', 'studentEmail', 'studentComments',
+        'courseId', 'courseName', 'unitId', 'lecturerId', 'attendanceDate',
+        'venue', 'status', 'lecturerComments', 'registrationNumber',
+        'isSubmitted', 'presentStudents', 'absentStudents'
+      ].contains(key)),
+  );
+}
   // Factory constructor from Map
   factory AttendanceModel.fromMap(Map<String, dynamic> map) {
     return AttendanceModel(

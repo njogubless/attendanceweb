@@ -404,7 +404,7 @@ class StudentPage extends ConsumerWidget {
               final student = students[index];
               return ListTile(
                 title: Text('${student['name']}'),
-                subtitle: Text('ID: ${student['studentId']}, Status: ${student['status']}'),
+                subtitle: Text('Status: ${student['status']}'),
               );
             },
           ),
